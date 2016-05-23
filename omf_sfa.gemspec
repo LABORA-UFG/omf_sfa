@@ -28,7 +28,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "log4r", "~> 1.1.10"
   s.add_runtime_dependency "maruku", "~> 0.6.0"
   s.add_runtime_dependency "uuid", "~> 2.3.5"
-  s.add_runtime_dependency "json", "~> 1.7.7"
+  s.add_runtime_dependency "json", "~> 1.8.3"
   s.add_runtime_dependency "blather", "~> 1.0.0"
 #
   s.add_runtime_dependency "equivalent-xml", "~> 0.2.9"
