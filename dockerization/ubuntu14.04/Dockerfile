@@ -61,4 +61,8 @@ COPY omf-sfa-am.yaml $OMF_SFA_HOME/etc/omf-sfa/
 WORKDIR $OMF_SFA_HOME
 RUN cp init/omf-sfa.conf /etc/init/ && sed -i '/chdir \/root\/omf\/omf_sfa/c\chdir \/root\/omf_sfa' /etc/init/omf-sfa.conf
 
-ENTRYPOINT ["bundle", "exec", "ruby", "-I", "lib", "lib/omf-sfa/am/am_server.rb", "start"]
+ADD pull-and-run.sh /usr/bin/
+
+ENTRYPOINT ["/usr/bin/pull-and-run.sh"]
+
+#ENTRYPOINT ["bundle", "exec", "ruby", "-I", "lib", "lib/omf-sfa/am/am_server.rb", "start"]
