@@ -5,6 +5,10 @@ ENV DOMAIN=ufg.br
 ENV AM_SERVER_DOMAIN=ufg.br
 ENV XMPP_DOMAIN=ufg.br
 
+#PULL FROM GIT HUB AND RUN BROKER
+COPY pull-and-run.sh /usr/bin/
+ENTRYPOINT ["/usr/bin/pull-and-run.sh"]
+
 RUN apt-get update
 RUN apt-get install -y \
    build-essential \
@@ -44,9 +48,9 @@ RUN rake db:migrate
 #BEGIN CERTIFICATES CONFIGURATION
 RUN mkdir certs
 WORKDIR $OMF_SFA_HOME/certs
-RUN omf_cert.rb --email root@DOMAIN -o root.pem --duration 50000000 create_root \
-&& omf_cert.rb -o am.pem  --geni_uri URI:urn:publicid:IDN+AM_SERVER_DOMAIN+user+am --email am@DOMAIN --resource-id xmpp://am_controller@XMPP_DOMAIN --resource-type am_controller --root root.pem --duration 50000000 create_resource \
-&& omf_cert.rb -o user_cert.pem --geni_uri URI:urn:publicid:IDN+AM_SERVER_DOMAIN+user+root --email root@DOMAIN --user root --root root.pem --duration 50000000 create_user
+RUN omf_cert.rb --email root@$DOMAIN -o root.pem --duration 50000000 create_root \
+&& omf_cert.rb -o am.pem  --geni_uri URI:urn:publicid:IDN+$AM_SERVER_DOMAIN+user+am --email am@$DOMAIN --resource-id xmpp://am_controller@$XMPP_DOMAIN --resource-type am_controller --root root.pem --duration 50000000 create_resource \
+&& omf_cert.rb -o user_cert.pem --geni_uri URI:urn:publicid:IDN+$AM_SERVER_DOMAIN+user+root --email root@$DOMAIN --user root --root root.pem --duration 50000000 create_user
 
 RUN mkdir -p /root/.omf/trusted_roots && cp * /root/.omf/ && cp root.pem am.pem /root/.omf/trusted_roots/
 RUN openssl rsa -in /root/.omf/am.pem -outform PEM -out /root/.omf/am.pkey \
@@ -55,14 +59,14 @@ RUN openssl rsa -in /root/.omf/am.pem -outform PEM -out /root/.omf/am.pkey \
 
 #BEGIN COPY CONFIGURATION FILE
 COPY omf-sfa-am.yaml $OMF_SFA_HOME/etc/omf-sfa/
+COPY getVersion_ext.yaml $OMF_SFA_HOME/etc/omf-sfa/
+COPY ch-cert.pem /root/.omf/trusted_roots
+COPY resources.json /root/
+COPY conf.yaml /root/omf_sfa/bin/
 #END COPY CONFIGURATION FILE
 
-#EXECUTE BROKER
+EXPOSE 8001/tcp
+
+#CONFIGURE BROKER STARTUP SERVICE
 WORKDIR $OMF_SFA_HOME
 RUN cp init/omf-sfa.conf /etc/init/ && sed -i '/chdir \/root\/omf\/omf_sfa/c\chdir \/root\/omf_sfa' /etc/init/omf-sfa.conf
-
-ADD pull-and-run.sh /usr/bin/
-
-ENTRYPOINT ["/usr/bin/pull-and-run.sh"]
-
-#ENTRYPOINT ["bundle", "exec", "ruby", "-I", "lib", "lib/omf-sfa/am/am_server.rb", "start"]

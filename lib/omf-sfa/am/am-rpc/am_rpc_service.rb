@@ -61,7 +61,7 @@ module OMF::SFA::AM::RPC
     end
 
     def list_resources(credentials, options)
-      debug 'ListResources: Options: ', options.inspect
+      debug 'ListResources: Options: ', credentials.inspect, options.inspect
 
       only_available = options["geni_available"]
       compressed = options["geni_compressed"]
