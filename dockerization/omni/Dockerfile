@@ -27,9 +27,9 @@ COPY gcf_path.txt /root/
 RUN cat /root/gcf_path.txt >> /root/.bashrc \
     && rm /root/gcf_path.txt
 
-COPY .gcf/ /root/.gcf
+COPY .gcf/ /root/.gcf/
 
-RUN /root/gcf/src/gen-certs.py
+#RUN /root/gcf/src/gen-certs.py
 
 EXPOSE 8000/tcp
 

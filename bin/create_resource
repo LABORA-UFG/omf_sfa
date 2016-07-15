@@ -62,8 +62,13 @@ op.on '-c', '--conf FILE', "Configuration file with communication info" do |file
     opts[:communication][:url] = "xmpp://#{x[:username]}:#{x[:password]}@#{x[:server]}"
     op_mode = x[:op_mode]
     comm_type = "XMPP"
+  elsif x = @y[:amqp]
+    resource_url = x[:topic]
+    opts[:communication][:url] = "amqp://#{x[:username]}:#{x[:password]}@#{x[:server]}"
+    op_mode = x[:op_mode]
+    comm_type = "AMQP"
   else
-    error "neither REST nor XMPP details was found in the configuration file"
+    error "neither REST nor XMPP/AMQP details was found in the configuration file"
     exit
   end
 

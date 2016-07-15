@@ -32,6 +32,6 @@
       }
     },
     "domain": "ufg.br",
-    "gateway": "10.0.0.200"
+    "gateway": "pubsub"
   }
 ]
