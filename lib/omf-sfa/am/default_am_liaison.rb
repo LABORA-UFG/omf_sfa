@@ -29,6 +29,10 @@ module OMF::SFA::AM
       end
     end
 
+    def list_all_resources
+      warn "Am liaison: create_account: Not implemented."
+    end
+
     def create_account(account)
       warn "Am liaison: create_account: Not implemented."
     end

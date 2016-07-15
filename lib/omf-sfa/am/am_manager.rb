@@ -500,6 +500,18 @@ module OMF::SFA::AM
       end.compact
     end
 
+    # Find all components for a specific account. Return the managed components
+    # if no account is given
+    #
+    # @param [Account] Account for which to find all associated component
+    # @param [Authorizer] Defines context for authorization decisions
+    # @return [Array<Component>] The component requested
+    #
+    def find_all_child_components(authorizer)
+      debug "find_all_components_for_account: #{authorizer.inspect}"
+      return @liaison.list_all_resources()
+    end
+
     # Find all components
     #
     # @param [Hash] Properties used for filtering the components

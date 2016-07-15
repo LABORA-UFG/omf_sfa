@@ -4,6 +4,7 @@ require 'omf-sfa/am/default_am_liaison'
 require "net/https"
 require "uri"
 require 'json'
+require 'open3'
 
 DEFAULT_REST_END_POINT = {url: "https://localhost:4567", user: "root", token: "1234556789abcdefghij"}
 
@@ -13,12 +14,22 @@ module OMF::SFA::AM
 
   # This class implements the AM Liaison
   #
-  class NitosAMLiaison < DefaultAMLiaison
+  class LaboraAMLiaison < DefaultAMLiaison
 
     def initialize(opts)
       super
       @default_sliver_type = OMF::SFA::Model::SliverType.find(urn: @config[:provision][:default_sliver_type_urn])
       @rest_end_points = @config[:REST_end_points]
+    end
+
+    def list_all_resources
+      endpoints = @config[:SFA_end_points]
+      nodes = Array.new()
+      endpoints.each { |server|
+        stdout, stdeerr, status = Open3.capture3("/media/arquivos/idea-projects/geni-tools/src/omni.py -a #{server[:url]} listresources")
+        nodes.append(/<node[\s\S]*<\/node>/s.match(stdeerr).to_s)
+      }
+      return nodes
     end
 
     def create_account(account)
@@ -56,4 +67,6 @@ module OMF::SFA::AM
     def provision(leases)
       warn "Am liaison: on_provision: Not implemented."
     end
-end # OMF::SFA::AM
+  end # OMF::SFA::AM
+end
+

@@ -5,7 +5,7 @@
 # to do this.
 :getversion:
 #  f4f_testbed_picture: http://nitlab.inf.uth.gr/NITlab/images/stories/nitlab/nitos_topology.png
-#  f4f_testbed_description: NITOS testbed currently consists of 50 operational wireless nodes, which are based on commercial Wifi cards and Linux open source drivers. The testbed is designed to achieve reproducibility of experimentation, while also supporting evaluation of protocols and applications in real world settings. NITOS testbed is deployed at the exterior of the University of Thessaly (UTH) campus building.
+#  f4f_testbed_description: NITOS testbed currently consists of 50 operational wireless nodes, which are based on commercial Wifi cards and Linux open source drivers. The testbed is designed to achieve r$
 #  f4f_endorsed_tools:
 #    -
 #     tool_homepage: http://mytestbed.net/
@@ -17,7 +17,7 @@
 #     tool_logo: http://mytestbed.net/attachments/download/797/oml.png
 #     tool_version: 2.10
 #     tool_name: OML
-#  hrn: nitos
-#  urn: urn:publicid:IDN+omf:nitos+authority+cm
-#  hostname: http://nitlab.inf.uth.gr
+  hrn: ufg.br
+  urn: URI:urn:publicid:IDN+ufg:br+authority+sa
+  hostname: 172.17.0.3
 #  code_tag: https://github.com/dostavro/omf_sfa/tree/xmpp

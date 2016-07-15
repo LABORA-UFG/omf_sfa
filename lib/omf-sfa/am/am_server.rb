@@ -13,6 +13,7 @@ require 'omf-sfa/am/am_manager'
 require 'omf-sfa/am/am_scheduler'
 require 'omf-sfa/am/am_liaison'
 require 'omf-sfa/am/am-xmpp/am_xmpp'
+require 'omf-sfa/am/am-amqp/am_amqp'
 
 @@config = OMF::Common::YAML.load('omf-sfa-am', :path => [File.dirname(__FILE__) + '/../../../etc/omf-sfa'])[:omf_sfa_am]
 
@@ -25,6 +26,7 @@ module OMF::SFA::AM
 
     @@rpc = @@config[:endpoints].select { |v| v[:type] == 'xmlrpc' }.first
     @@xmpp = @@config[:endpoints].select { |v| v[:type] == 'xmpp' }.first
+    @@amqp = @@config[:endpoints].select { |v| v[:type] == 'amqp' }.first
 
 
     def self.rpc_config
@@ -33,6 +35,10 @@ module OMF::SFA::AM
 
     def self.xmpp_config
       @@xmpp
+    end
+
+    def self.amqp_config
+      @@amqp
     end
 
     def init_logger
@@ -148,9 +154,9 @@ module OMF::SFA::AM
         :pre_rackup => lambda do
           EM.next_tick do
           # Thread.new do
-            OmfCommon.init(@@config[:operationMode], :communication => {:url => "xmpp://#{@@xmpp[:user]}:#{@@xmpp[:password]}@#{@@xmpp[:server]}", :auth => {}}) do |el|
-            # OmfCommon.init(@@config[:operationMode], :communication => {:url => "amqp://testServer", :auth => {}}) do |el|
-             puts "Connected to the XMPP."
+            OmfCommon.init(@@config[:operationMode], :communication => {:url => "amqp://#{@@amqp[:user]}:#{@@amqp[:password]}@#{@@amqp[:server]}", :auth => {}}) do |el|
+              #OmfCommon.init(@@config[:operationMode], :communication => {:url => "xmpp://#{@@xmpp[:user]}:#{@@xmpp[:password]}@#{@@xmpp[:server]}", :auth => {}}) do |el|
+             puts "Connected to the AMQP."
             end
           end
         end,
@@ -190,6 +196,7 @@ end # module
 #
 rpc = OMF::SFA::AM::AMServer.rpc_config
 xmpp = OMF::SFA::AM::AMServer.xmpp_config
+amqp = OMF::SFA::AM::AMServer.amqp_config
 
 opts = {
   :app_name => 'am_server',
@@ -204,6 +211,10 @@ opts = {
   :xmpp =>
   {
     :auth => xmpp[:auth],
+  },
+  :amqp =>
+  {
+      :auth => amqp[:auth],
   },
   :database => "#{@@config[:database]}",
   :rackup => File.dirname(__FILE__) + '/config.ru',

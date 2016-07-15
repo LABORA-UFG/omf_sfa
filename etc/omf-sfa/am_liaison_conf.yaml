@@ -18,3 +18,11 @@ am_liaison:
       url: http://CMC_IP:PORT
       user: USERNAME
       token: TOKEN
+
+  SFA_end_points:
+    -
+      urn: urn:publicid:IDN+ufg.br:am1+authority+am
+      url: https://172.17.0.4:8001/RPC2
+    -
+      urn: urn:publicid:IDN+ufg.br:am1+authority+am
+      url: https://172.17.0.5:8001/RPC2
