@@ -85,7 +85,7 @@ module OmfRc::ResourceProxy::AMController
     puts "Message rtype #{message.rtype}"
     puts "Message new properties #{new_props.class} #{new_props.inspect}"
 
-    
+
     new_res = create_resource(type, new_props)
 
     puts "NEW RES #{new_res.inspect}"
@@ -101,13 +101,13 @@ module OmfRc::ResourceProxy::AMController
     puts "Creating resource of type '#{type}' with properties '#{props.inspect}' @ '#{@scheduler.inspect}'"
     if type == "Lease" #Lease is a unigue case, needs special treatment
       #res = eval("OMF::SFA::Resource::#{type}").create(props)
-      
+
       res_descr = {name: props[:name]}
       if comps = props[:components]
         #props.reject!{ |k| k == :components}
         props.tap { |hs| hs.delete(:components) }
       end
-      
+
       #TODO when authorization is done remove the next line in order to change what authorizer does with his account
       @authorizer.account = props[:account]
 

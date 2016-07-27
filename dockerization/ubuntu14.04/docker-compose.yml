@@ -1,20 +1,23 @@
 version: '2'
 
-broker:
-    build: .
-    image: broker
-    container_name: broker
-    links:
-        - pubsub
-    ports:
-        - "8001:8001"
-    entrypoint: /usr/bin/pull-and-run.sh
-pubsub:
-    image: sameersbn/openfire:latest
-    container_name: pubsub:openfire
-    ports:
-        - "9090:9090"
-        - "5222:5222"
-        - "7777:7777"
-    volumes:
-        - ./openfire:/var/lib/openfire
+services:
+    broker:
+        build: .
+        image: broker
+        container_name: broker
+        links:
+            - pubsub
+        ports:
+            - "8001:8001"
+        entrypoint: /usr/bin/entrypoint.sh
+        volumes:
+              - /media/arquivos/idea-projects/omf_sfa:/root/omf_sfa
+    pubsub:
+        image: sameersbn/openfire:latest
+        container_name: pubsub
+        ports:
+            - "9090:9090"
+            - "5222:5222"
+            - "7777:7777"
+        volumes:
+            - ./openfire:/var/lib/openfire

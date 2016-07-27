@@ -26,7 +26,7 @@ module OMF::SFA::AM
 
     @@rpc = @@config[:endpoints].select { |v| v[:type] == 'xmlrpc' }.first
     @@xmpp = @@config[:endpoints].select { |v| v[:type] == 'xmpp' }.first
-    @@amqp = @@config[:endpoints].select { |v| v[:type] == 'amqp' }.first
+    # @@amqp = @@config[:endpoints].select { |v| v[:type] == 'amqp' }.first
 
 
     def self.rpc_config
@@ -37,9 +37,9 @@ module OMF::SFA::AM
       @@xmpp
     end
 
-    def self.amqp_config
-      @@amqp
-    end
+    # def self.amqp_config
+    #   @@amqp
+    # end
 
     def init_logger
       OMF::Common::Loggable.init_log 'am_server', :searchPath => File.join(File.dirname(__FILE__), 'am_server'), :environment => @@config[:operationMode]
@@ -154,9 +154,9 @@ module OMF::SFA::AM
         :pre_rackup => lambda do
           EM.next_tick do
           # Thread.new do
-            OmfCommon.init(@@config[:operationMode], :communication => {:url => "amqp://#{@@amqp[:user]}:#{@@amqp[:password]}@#{@@amqp[:server]}", :auth => {}}) do |el|
-              #OmfCommon.init(@@config[:operationMode], :communication => {:url => "xmpp://#{@@xmpp[:user]}:#{@@xmpp[:password]}@#{@@xmpp[:server]}", :auth => {}}) do |el|
-             puts "Connected to the AMQP."
+            #OmfCommon.init(@@config[:operationMode], :communication => {:url => "amqp://#{@@amqp[:user]}:#{@@amqp[:password]}@#{@@amqp[:server]}", :auth => {}}) do |el|
+            OmfCommon.init(@@config[:operationMode], :communication => {:url => "xmpp://#{@@xmpp[:user]}:#{@@xmpp[:password]}@#{@@xmpp[:server]}", :auth => {}}) do |el|
+             puts "Connected to the XMPP."
             end
           end
         end,
@@ -196,7 +196,7 @@ end # module
 #
 rpc = OMF::SFA::AM::AMServer.rpc_config
 xmpp = OMF::SFA::AM::AMServer.xmpp_config
-amqp = OMF::SFA::AM::AMServer.amqp_config
+#amqp = OMF::SFA::AM::AMServer.amqp_config
 
 opts = {
   :app_name => 'am_server',
@@ -212,10 +212,10 @@ opts = {
   {
     :auth => xmpp[:auth],
   },
-  :amqp =>
-  {
-      :auth => amqp[:auth],
-  },
+  #:amqp =>
+  #{
+  #    :auth => amqp[:auth],
+  #},
   :database => "#{@@config[:database]}",
   :rackup => File.dirname(__FILE__) + '/config.ru',
 }

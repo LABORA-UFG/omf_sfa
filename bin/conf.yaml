@@ -1,6 +1,6 @@
 :auth:
-  :entity_cert: /home/vinicius/.omf/user_cert.pem
-  :entity_key: /home/vinicius/.omf/user_cert.pkey
+  :entity_cert: /root/.omf/user_cert.pem
+  :entity_key: /root/.omf/user_cert.pkey
 :rest:
-  :server: localhost
+  :server: broker
   :port: 8001

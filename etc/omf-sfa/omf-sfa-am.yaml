@@ -1,4 +1,3 @@
-
 omf_sfa_am:
   # This is your testbed's domain. It will be used in the URNs
   # of the resources e.g. 'urn:publicid:IDN+domain+type+name'
@@ -23,16 +22,7 @@ omf_sfa_am:
       type: xmpp
       user: testbed
       password: lab251
-      server: 172.17.0.2
-      auth:
-        :entity_cert: ~/.omf/am.pem
-        :entity_key: ~/.omf/am.pkey
-        :root_cert_dir: ~/.omf/trusted_roots
-    -
-      type: amqp
-      user: testbed
-      password: lab251
-      server: 172.17.0.2
+      server: pubsub
       auth:
         :entity_cert: ~/.omf/am.pem
         :entity_key: ~/.omf/am.pkey
@@ -43,8 +33,8 @@ omf_sfa_am:
       constructor: MappingSubmodule
 
   am_liaison:
-      require: omf-sfa/am/labora_am_liaison
-      constructor: OMF::SFA::AM::LaboraAMLiaison
+      require: omf-sfa/am/nitos_am_liaison
+      constructor: OMF::SFA::AM::NitosAMLiaison
 
   am_policies:
       require: omf-sfa/am/am_policies
