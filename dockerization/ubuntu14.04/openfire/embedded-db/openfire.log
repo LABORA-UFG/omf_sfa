@@ -1,0 +1,32 @@
+/*C1*/SET SCHEMA PUBLIC
+CONNECT USER SA
+/*C2*/SET SCHEMA PUBLIC
+CONNECT USER SA
+/*C3*/SET SCHEMA PUBLIC
+CONNECT USER SA
+/*C1*/INSERT INTO OFPUBSUBSUBSCRIPTION VALUES('pubsub','2b0d5dc4da60-80','22Rppow17WiiRMY8WXmKpvHTYbbvc978iT1VKzA8','testbed@ufg.br','testbed@ufg.br','subscribed',1,0,86400000,NULL,0,' ','nodes',1,NULL)
+/*C2*/INSERT INTO OFPUBSUBSUBSCRIPTION VALUES('pubsub','am_controller','c2v2P5nO3jAbr89Su7PbTqsRP5SifVs7m4iJ1Hqf','testbed@ufg.br','testbed@ufg.br','subscribed',1,0,86400000,NULL,0,' ','nodes',1,NULL)
+/*C3*/INSERT INTO OFPUBSUBSUBSCRIPTION VALUES('pubsub','am_controller','htl08QMd10bjvye56BQEY2Q6dddqW57jYk0VR8nP','testbed@ufg.br','testbed@ufg.br','subscribed',1,0,86400000,NULL,0,' ','nodes',1,NULL)
+/*C2*/SET AUTOCOMMIT FALSE
+SET AUTOCOMMIT TRUE
+/*C3*/INSERT INTO OFPRESENCE VALUES('testbed',NULL,'001469661166316')
+DELETE FROM OFPRESENCE WHERE USERNAME='testbed'
+/*C2*/SET AUTOCOMMIT FALSE
+INSERT INTO OFPUBSUBNODE VALUES('pubsub','2b0d5dc4da60-79',1,'001469661176940','001469661176942','',1,5120,0,1,1,1,0,0,1,'open',1,0,'open','','','','testbed@ufg.br/1d346a94','','English','','owner',NULL,0)
+COMMIT
+SET AUTOCOMMIT TRUE
+/*C1*/INSERT INTO OFPUBSUBAFFILIATION VALUES('pubsub','2b0d5dc4da60-79','testbed@ufg.br','owner')
+/*C3*/INSERT INTO OFPUBSUBSUBSCRIPTION VALUES('pubsub','2b0d5dc4da60-79','R73mMvCh4v9lQz7vNWu5N678bAip4AgN2mH267gO','testbed@ufg.br','testbed@ufg.br','subscribed',1,0,86400000,NULL,0,' ','nodes',1,NULL)
+/*C1*/INSERT INTO OFPUBSUBSUBSCRIPTION VALUES('pubsub','am_controller','wI6GlKMezD5H5f00QgL8eWHnf6v39t4dgKuFNbOu','testbed@ufg.br','testbed@ufg.br','subscribed',1,0,86400000,NULL,0,' ','nodes',1,NULL)
+/*C3*/INSERT INTO OFPUBSUBSUBSCRIPTION VALUES('pubsub','am_controller','tSq4pYOitF4w6697u403549aUglSYLW03FLbbitU','testbed@ufg.br','testbed@ufg.br','subscribed',1,0,86400000,NULL,0,' ','nodes',1,NULL)
+/*C1*/INSERT INTO OFPRESENCE VALUES('testbed',NULL,'001469661257164')
+/*C3*/SET AUTOCOMMIT FALSE
+SET AUTOCOMMIT TRUE
+DELETE FROM OFPRESENCE WHERE USERNAME='testbed'
+/*C2*/INSERT INTO OFPUBSUBSUBSCRIPTION VALUES('pubsub','2b0d5dc4da60-80','OXbDV6C4jsPpLQWzpifqReQMXEHP7bNaO4r66rNQ','testbed@ufg.br','testbed@ufg.br','subscribed',1,0,86400000,NULL,0,' ','nodes',1,NULL)
+/*C3*/INSERT INTO OFPUBSUBSUBSCRIPTION VALUES('pubsub','am_controller','6V1l3gQORfS33wxLXSdfHqy7eX2w142or8mi1Elx','testbed@ufg.br','testbed@ufg.br','subscribed',1,0,86400000,NULL,0,' ','nodes',1,NULL)
+/*C2*/INSERT INTO OFPUBSUBSUBSCRIPTION VALUES('pubsub','am_controller','UIWCjFHXn9VC0WFj8pDz6Ata5oY8TsCyk7BfHe49','testbed@ufg.br','testbed@ufg.br','subscribed',1,0,86400000,NULL,0,' ','nodes',1,NULL)
+/*C1*/SET AUTOCOMMIT FALSE
+SET AUTOCOMMIT TRUE
+/*C3*/SET AUTOCOMMIT FALSE
+SET AUTOCOMMIT TRUE
