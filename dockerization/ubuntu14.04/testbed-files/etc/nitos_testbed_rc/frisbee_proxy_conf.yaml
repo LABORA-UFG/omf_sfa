@@ -1,5 +1,5 @@
 #xmpp details
-:xmpp:
+:amqp:
   :username: frisbee_user
   :password: lab251
   :server: pubsub

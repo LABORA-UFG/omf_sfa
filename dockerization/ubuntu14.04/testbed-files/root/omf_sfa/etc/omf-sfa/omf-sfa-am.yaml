@@ -19,7 +19,7 @@ omf_sfa_am:
         private_key_file: ~/.omf/am.pkey
       trusted_roots: ~/.omf/trusted_roots
     -
-      type: xmpp
+      type: amqp
       user: testbed
       password: lab251
       server: pubsub
