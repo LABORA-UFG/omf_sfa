@@ -11,7 +11,7 @@ services:
             - "8001:8001"
         entrypoint: /usr/bin/entrypoint.sh
         volumes:
-              - /media/arquivos/idea-projects/omf_sfa:/root/omf_sfa
+              - ../..:/root/omf_sfa
 #    pubsub:
 #        image: sameersbn/openfire:latest
 #        container_name: pubsub
