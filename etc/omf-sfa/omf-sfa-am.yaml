@@ -19,7 +19,8 @@ omf_sfa_am:
         private_key_file: ~/.omf/am.pkey
       trusted_roots: ~/.omf/trusted_roots
     -
-      type: amqp
+      type: pubsub
+      driver: amqp
       user: testbed
       password: lab251
       server: pubsub

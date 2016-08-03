@@ -15,7 +15,7 @@ require 'omf-sfa/am/am_liaison'
 require 'omf-sfa/am/am-xmpp/am_xmpp'
 require 'omf-sfa/am/am-amqp/am_amqp'
 
-@@config = OMF::Common::YAML.load('omf-sfa-am', :path => [File.dirname(__FILE__) + '/../../../etc/omf-sfa'])[:omf_sfa_am]
+$config = OMF::Common::YAML.load('omf-sfa-am', :path => [File.dirname(__FILE__) + '/../../../etc/omf-sfa'])[:omf_sfa_am]
 
 module OMF::SFA::AM
 
@@ -24,37 +24,30 @@ module OMF::SFA::AM
     include OMF::Common::Loggable
     extend OMF::Common::Loggable
 
-    @@rpc = @@config[:endpoints].select { |v| v[:type] == 'xmlrpc' }.first
-    @@xmpp = @@config[:endpoints].select { |v| v[:type] == 'xmpp' }.first
-    @@amqp = @@config[:endpoints].select { |v| v[:type] == 'amqp' }.first
-
+    @@rpc = $config[:endpoints].select { |v| v[:type] == 'xmlrpc' }.first
+    @@pubsub = $config[:endpoints].select{ |v| v[:type] == 'pubsub' }.first
 
     def self.rpc_config
       @@rpc
     end
 
-    def self.xmpp_config
-      @@xmpp
-    end
-
-    def self.amqp_config
-      @@amqp
+    def self.pubsub_config
+      @@pubsub
     end
 
     def init_logger
-      OMF::Common::Loggable.init_log 'am_server', :searchPath => File.join(File.dirname(__FILE__), 'am_server'), :environment => @@config[:operationMode]
+      OMF::Common::Loggable.init_log 'am_server', :searchPath => File.join(File.dirname(__FILE__), 'am_server'), :environment => $config[:operationMode]
     end
 
     def check_dependencies
-      raise "xmlsec1 is not installed!" unless system('which xmlsec1 > /dev/null 2>&1')
+      raise 'xmlsec1 is not installed!' unless system('which xmlsec1 > /dev/null 2>&1')
     end
 
     def load_trusted_cert_roots
-
       trusted_roots = File.expand_path(@@rpc[:trusted_roots])
       certs = Dir.entries(trusted_roots)
-      certs.delete("..")
-      certs.delete(".")
+      certs.delete('..')
+      certs.delete('.')
       certs.each do |fn|
         fne = File.join(trusted_roots, fn)
         if File.readable?(fne)
@@ -62,7 +55,7 @@ module OMF::SFA::AM
             trusted_cert = OpenSSL::X509::Certificate.new(File.read(fne))
             OpenSSL::SSL::SSLContext::DEFAULT_CERT_STORE.add_cert(trusted_cert)
           rescue OpenSSL::X509::StoreError => e
-            if e.message == "cert already in hash table"
+            if e.message == 'cert already in hash table'
               warn "X509 cert '#{fne}' already registered in X509 store"
             else
               raise e
@@ -84,7 +77,7 @@ module OMF::SFA::AM
       Sequel.connect(options[:database])
       # puts 'requiring models'
       require 'omf-sfa/models' # Make sure Sequel has been connected to a db before loading the models
-      OMF::SFA::Model::Constants.default_domain = @@config[:domain]
+      OMF::SFA::Model::Constants.default_domain = $config[:domain]
     end
 
 
@@ -153,9 +146,10 @@ module OMF::SFA::AM
         # Should be done in a better way
         :pre_rackup => lambda do
           EM.next_tick do
-          # Thread.new do
-            OmfCommon.init(@@config[:operationMode], :communication => {:url => "amqp://#{@@amqp[:user]}:#{@@amqp[:password]}@#{@@amqp[:server]}", :auth => {}}) do |el|
-              #OmfCommon.init(@@config[:operationMode], :communication => {:url => "xmpp://#{@@xmpp[:user]}:#{@@xmpp[:password]}@#{@@xmpp[:server]}", :auth => {}}) do |el|
+            OmfCommon.init($config[:operationMode], :communication => {
+                :url => "#{@@pubsub[:driver]}://#{@@pubsub[:user]}:#{@@pubsub[:password]}@#{@@pubsub[:server]}",
+                :auth => {}
+            }) do |el|
              puts "Connected to the AMQP."
             end
           end
@@ -167,22 +161,16 @@ module OMF::SFA::AM
           p.on("--database URL", "Database's URL [#{options[:database]}]") do |u| options[:database] = u end
           p.separator ""
         end,
-        :pre_run => lambda do |opts|
-          puts "OPTS: #{opts.inspect}"
-          init_logger()
-          check_dependencies()
-          load_trusted_cert_roots()
-          init_db(opts)
-          init_am_manager(opts)
-          load_test_am(opts) if opts[:load_test_am]
-          # EM.next_tick do
-          #   OmfCommon.init(@@config[:operationMode], :communication => {:url => "amqp://testServer", :auth => {}}) do |el|
-          #     puts "Connected to the XMPP."
-          #   end
-          # end
+        :pre_run => lambda do |options|
+          puts "OPTS: #{options.inspect}"
+          init_logger
+          check_dependencies
+          load_trusted_cert_roots
+          init_db(options)
+          init_am_manager(options)
+          load_test_am(options) if options[:load_test_am]
         end
       }
-
 
       # Thin::Logging.debug = false
       require 'omf_common/thin/runner'
@@ -195,43 +183,39 @@ end # module
 # Configure the web server
 #
 rpc = OMF::SFA::AM::AMServer.rpc_config
-xmpp = OMF::SFA::AM::AMServer.xmpp_config
-amqp = OMF::SFA::AM::AMServer.amqp_config
+pubsub = OMF::SFA::AM::AMServer.pubsub_config
 
 opts = {
   :app_name => 'am_server',
   :port => rpc[:port] || 8001,
-  :environment => @@config[:operationMode],
+  :environment => $config[:operationMode],
   :ssl =>
   {
     :cert_file => File.expand_path(rpc[:ssl][:cert_chain_file]),
     :key_file => File.expand_path(rpc[:ssl][:private_key_file]),
-    :verify_peer => true,
+    :verify_peer => true
   },
-  # :xmpp =>
-  # {
-  #   :auth => xmpp[:auth],
-  # },
-  :amqp =>
+  pubsub[:driver].to_sym =>
   {
-      :auth => amqp[:auth],
+      :auth => pubsub[:auth]
   },
-  :database => "#{@@config[:database]}",
+  :database => "#{$config[:database]}",
   :rackup => File.dirname(__FILE__) + '/config.ru',
 }
-if @@config[:mapping_submodule]
+
+if $config[:mapping_submodule]
   opts[:mapping_submodule] = {}
-  opts[:mapping_submodule][:require] =  @@config[:mapping_submodule][:require]
-  opts[:mapping_submodule][:constructor] =  @@config[:mapping_submodule][:constructor]
+  opts[:mapping_submodule][:require] =  $config[:mapping_submodule][:require]
+  opts[:mapping_submodule][:constructor] =  $config[:mapping_submodule][:constructor]
 end
-if @@config[:am_liaison]
+if $config[:am_liaison]
   opts[:am_liaison] = {}
-  opts[:am_liaison][:require] = @@config[:am_liaison][:require]
-  opts[:am_liaison][:constructor] =  @@config[:am_liaison][:constructor]
+  opts[:am_liaison][:require] = $config[:am_liaison][:require]
+  opts[:am_liaison][:constructor] =  $config[:am_liaison][:constructor]
 end
-if @@config[:am_policies]
+if $config[:am_policies]
   opts[:am_policies] = {}
-  opts[:am_policies][:require] = @@config[:am_policies][:require]
-  opts[:am_policies][:constructor] =  @@config[:am_policies][:constructor]
+  opts[:am_policies][:require] = $config[:am_policies][:require]
+  opts[:am_policies][:constructor] =  $config[:am_policies][:constructor]
 end
 OMF::SFA::AM::AMServer.new.run(opts)

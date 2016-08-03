@@ -163,7 +163,6 @@ module OMF::SFA::AM::AMQP
           puts "AM Resource Controller ready."
         end
       end
-
     end
 
     # This is temporary until we use an amqp authorizer

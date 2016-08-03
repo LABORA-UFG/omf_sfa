@@ -24,7 +24,9 @@ end
 OMF::Common::Thin::Runner.instance.life_cycle(:pre_rackup)
 opts = OMF::Common::Thin::Runner.instance.options
 #puts self.methods.sort.inspect
+"======= OPTS FROM CONFIG.RU ======="
 puts opts
+"======= END OPTS ======="
 
 am_mgr = opts[:am][:manager]
 am_sched = am_mgr.get_scheduler
