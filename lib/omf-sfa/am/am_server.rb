@@ -147,10 +147,10 @@ module OMF::SFA::AM
         :pre_rackup => lambda do
           EM.next_tick do
             OmfCommon.init($config[:operationMode], :communication => {
-                :url => "#{@@pubsub[:driver]}://#{@@pubsub[:user]}:#{@@pubsub[:password]}@#{@@pubsub[:server]}",
+                :url => "#{@@pubsub[:protocol]}://#{@@pubsub[:user]}:#{@@pubsub[:password]}@#{@@pubsub[:server]}",
                 :auth => {}
             }) do |el|
-             puts "Connected to the AMQP."
+             puts "Connected to the #{@@pubsub[:protocol].upcase}."
             end
           end
         end,
@@ -195,7 +195,7 @@ opts = {
     :key_file => File.expand_path(rpc[:ssl][:private_key_file]),
     :verify_peer => true
   },
-  pubsub[:driver].to_sym =>
+  pubsub[:protocol].to_sym =>
   {
       :auth => pubsub[:auth]
   },
