@@ -24,6 +24,9 @@ omf_sfa_am:
       user: testbed
       password: lab251
       server: pubsub
+      pubsub_opt:
+        require: omf-sfa/am/am-amqp/am_amqp
+        constructor: OMF::SFA::AM::AMQP::AMController
       auth:
         :entity_cert: ~/.omf/am.pem
         :entity_key: ~/.omf/am.pkey

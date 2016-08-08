@@ -118,7 +118,7 @@ end
 
 class Hash
   def to_json(options = {})
-    JSON.generate(self)
+    super
   end
 end
 

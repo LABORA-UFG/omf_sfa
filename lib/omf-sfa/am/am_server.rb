@@ -12,8 +12,6 @@ require 'omf-sfa/am/am_runner'
 require 'omf-sfa/am/am_manager'
 require 'omf-sfa/am/am_scheduler'
 require 'omf-sfa/am/am_liaison'
-require 'omf-sfa/am/am-xmpp/am_xmpp'
-require 'omf-sfa/am/am-amqp/am_amqp'
 
 $config = OMF::Common::YAML.load('omf-sfa-am', :path => [File.dirname(__FILE__) + '/../../../etc/omf-sfa'])[:omf_sfa_am]
 
@@ -198,6 +196,11 @@ opts = {
   pubsub[:protocol].to_sym =>
   {
       :auth => pubsub[:auth]
+  },
+  :pubsub_opt =>
+  {
+      :require => pubsub[:pubsub_opt][:require],
+      :constructor => pubsub[:pubsub_opt][:constructor]
   },
   :database => "#{$config[:database]}",
   :rackup => File.dirname(__FILE__) + '/config.ru',

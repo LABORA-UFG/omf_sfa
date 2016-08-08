@@ -40,8 +40,10 @@ else
 end
 am_mgr.liaison = am_liaison
 am_sched.liaison = am_liaison
-#am_controller = OMF::SFA::AM::XMPP::AMController.new({manager: am_mgr, xmpp: opts[:xmpp]})
-am_controller = OMF::SFA::AM::AMQP::AMController.new({manager: am_mgr, amqp: opts[:amqp]})
+
+require opts[:pubsub_opt][:require]
+am_controller = eval(opts[:pubsub_opt][:constructor]).new(opts)
+
 am_sched.initialize_event_scheduler
 
 use Rack::Session::Pool
