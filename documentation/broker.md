@@ -24,6 +24,9 @@ This layer has SFA, REST and FRCP communication interfaces. The SFA interface su
 </p>
 
 ###Authentication/Authorization Layer
+<p align="justify">
+The Authentication/Authorization (A/A) layer is responsible for accepting or denying requests based on a A/A context. Each communitation interface receives a different credentials set, which requires the use of different mechanisms to deal with them.
+</p>
 
 ###Management Layer
 
