@@ -1,7 +1,7 @@
 Installation Guide
 ==================
 
-The installation process described bellow was automated by the [omf6-testbed](https://github.com/LABORA-UFG/omf6-testbed) project, and we recommend that you use that project to install the Broker module. However, if you want to learn the step by step process, you can follow the instructions presented bellow.
+The installation process described bellow was automated by the [omf6-testbed](https://github.com/LABORA-UFG/omf6-testbed) project and we recommend that you use that project to install the Broker module. However, if you want to learn the step by step process, you can follow the instructions presented bellow.
 
 Prerequirements
 ---------------
