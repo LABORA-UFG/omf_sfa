@@ -6,14 +6,7 @@ Aggregate Manager
 Installation
 ------------
 
-At this stage the best course of action is to clone the repository
-
-    % git clone https://github.com/mytestbed/omf_sfa.git
-    % cd omf_sfa
-    % export OMF_SFA_HOME=`pwd`
-    % bundle install
-
-Also make sure you define the correct paths of the credentials in "etc/omf-sfa/omf-sfa-am.yaml"
+At this stage the best course of action is to clone the repository. You can follow the [Installation Guide](documentation/Installation.md) to get all instructions for installation and configuration.
 
 Starting a Test AM
 ------------------

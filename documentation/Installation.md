@@ -15,9 +15,9 @@ Install xmlsec1, which is required by the am_server
 Repository
 ----------
 
-At this stage the best course of action is to clone the 'dostavro/omf_sfa' repository, which includes the most updated version (very soon, it will be pulled to the original repository 'mytestbed/omf_sfa').
+At this stage the best course of action is to clone the 'LABORA-UFG/omf_sfa' repository, which includes the most updated version (very soon, it will be pulled to the original repository 'mytestbed/omf_sfa').
 
-    $ git clone https://github.com/dostavro/omf_sfa.git
+    $ git clone https://github.com/LABORA-UFG/omf_sfa.git
     $ cd omf_sfa
     $ export OMF_SFA_HOME=`pwd`
     $ bundle install
@@ -133,9 +133,9 @@ First you have to edit the configuration file for the create_resource script acc
 
 Then a json file that describes the resources is required. 
 This file can contain either a single resource or more than one resources in the form of an array. 
-A sample file is [here](https://github.com/dostavro/omf_sfa/tree/master/examples/Populate_DB/sample_nitos_enriched_nodes_out.json). 
+A sample file is [here](https://github.com/LABORA-UFG/omf_sfa/tree/master/examples/Populate_DB/sample_nitos_enriched_nodes_out.json). 
 The description of each resource is in the form of filling specific values to the predefined properties of each resources. 
-The set of the properties of each resource is defined in its model (e.g. for the resource of type node, the model is [here](https://github.com/dostavro/omf_sfa/blob/master/lib/omf-sfa/resource/node.rb).
+The set of the properties of each resource is defined in its model (e.g. for the resource of type node, the model is [here](https://github.com/LABORA-UFG/omf_sfa/blob/master/lib/omf-sfa/resource/node.rb).
 Please have in mind that although most of the properties are optional, there are properties like 'urn' which are mandatory (skipping urn might cause unexpected behaviour).
 Moreover, there are properties like 'hardware_type' that are testbed specific and follow a convention.
 
@@ -146,7 +146,7 @@ To populate the database with the nodes:
 This script uses the REST interface of am_server to import data in the database.
 
 In order to populate the database with the channels a similar procedure can be followed. We need a json that describes the
-channels (sample file [here](https://github.com/dostavro/omf_sfa/tree/master/examples/Populate_DB/sample_nitos_channels.json)).
+channels (sample file [here](https://github.com/LABORA-UFG/omf_sfa/tree/master/examples/Populate_DB/sample_nitos_channels.json)).
 
     $ ./create_resource -t channel -c conf.yaml -i channels_description.json
 
