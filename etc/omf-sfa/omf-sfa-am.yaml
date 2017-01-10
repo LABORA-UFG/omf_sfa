@@ -39,9 +39,6 @@ omf_sfa_am:
 
   am_policies:
       require: omf-sfa/am/am_policies
-<<<<<<< HEAD
-      constructor: OMF::SFA::AM::AMPolicies
-=======
       constructor: OMF::SFA::AM::AMPolicies
 
   central_broker:
@@ -52,4 +49,3 @@ omf_sfa_am:
           address: https://nitlab.inf.uth.gr:8001/
           cert:    /root/.omf/central_broker_certs/nitlab_user_cert.pem
           key:     /root/.omf/central_broker_certs/nitlab_user_cert.pkey
->>>>>>> ed07d69affbef2adaebd219bb2ccc767b76308d0
