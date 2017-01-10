@@ -87,9 +87,8 @@ module OMF::SFA::AM::RPC
       if slice_urn
         resources = @manager.find_all_leases(authorizer.account, ["pending", "accepted", "active"], authorizer)
         resources.concat(@manager.find_all_components_for_account(authorizer.account, authorizer))
-        # resources = @manager.find_all_resources_for_account(authorizer.account, authorizer)
 
-        res = OMF::SFA::Model::Component.sfa_response_xml(resources, type: 'manifest').to_xml
+        res = @manager.sfa_response_xml(resources, {type: 'manifest', :account => authorizer.account})
       else
         resources = @manager.find_all_leases(nil, ["pending", "accepted", "active"], authorizer)
         comps = @manager.find_all_components_for_account(@manager._get_nil_account, authorizer)
@@ -98,18 +97,17 @@ module OMF::SFA::AM::RPC
           debug "only_available flag is true!"
           comps.delete_if {|c| !c.available_now?}
         end
-        resources.concat(comps)
-        res = OMF::SFA::Model::Component.sfa_response_xml(resources, type: 'advertisement').to_xml
+
+        resources.concat(comps) unless comps.nil? || comps.empty?
+        res = @manager.sfa_response_xml(resources, type: 'advertisement')
 
         #TODO correct this pog
         #add nodes in xml to the rspec
         end_node_pattern = "/node>"
         last_node_position = res.index(end_node_pattern)
         child_resources.each { |node| res.insert(last_node_position+end_node_pattern.length,"\n#{node}")}
-
       end
 
-      #res = OMF::SFA::Resource::OComponent.sfa_advertisement_xml(resources).to_xml
       if compressed
 	      res = Base64.encode64(Zlib::Deflate.deflate(res))
       end
@@ -142,10 +140,19 @@ module OMF::SFA::AM::RPC
       resources = @manager.update_resources_from_rspec(rspec.root, true, authorizer)
 
       leases_only = true
+      component_manager_ids = []
       resources.each do |res|
-        if res.resource_type != 'lease'
-          leases_only = false
-          break
+        if res.kind_of? Hash
+          if res[:resource_type] != 'lease'
+            leases_only = false
+          else
+            component_manager_ids << res[:component_manager_id] if res[:component_manager_id] && !component_manager_ids.include?(res[:component_manager_id])
+          end
+        else
+          if res.resource_type != 'lease'
+            leases_only = false
+            break
+          end
         end
       end
 
@@ -162,21 +169,14 @@ module OMF::SFA::AM::RPC
         return @return_struct
       end
 
-      all_keys = []
-      users.each do |user|
-        gurn = OMF::SFA::Model::GURN.parse(user["urn"])
-        u = @manager.find_or_create_user({urn: gurn.urn}, user["keys"])
-        u.keys.each do |k|
-          all_keys << k unless all_keys.include? k
-        end
-        unless authorizer.account.users.include?(u) 
-          authorizer.account.add_user(u) 
-          authorizer.account.save
+      unless component_manager_ids.nil? || component_manager_ids.empty?
+        users.each do |user| 
+          user[:component_manager_ids] = component_manager_ids 
         end
       end
-      @liaison.configure_keys(all_keys, authorizer.account)
+      @manager.configure_user_keys(users, authorizer)
 
-      res = OMF::SFA::Model::Component.sfa_response_xml(resources, {:type => 'manifest'}).to_xml
+      res = @manager.sfa_response_xml(resources, {:type => 'manifest', :account => authorizer.account})
 
       @return_struct[:code][:geni_code] = 0
       @return_struct[:value] = res
