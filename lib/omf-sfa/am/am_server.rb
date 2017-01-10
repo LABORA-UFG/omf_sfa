@@ -145,7 +145,9 @@ module OMF::SFA::AM
         :pre_rackup => lambda do
           EM.next_tick do
             OmfCommon.init($config[:operationMode], :communication => {
-                :url => "#{@@pubsub[:protocol]}://#{@@pubsub[:user]}:#{@@pubsub[:password]}@#{@@pubsub[:server]}",
+                :url => "#{@@pubsub[:protocol]}://#{@@pubsub[:server]}",
+                :user => @@pubsub[:user],
+                :pass => @@pubsub[:password],
                 :auth => {}
             }) do |el|
              puts "Connected to the #{@@pubsub[:protocol].upcase}."
