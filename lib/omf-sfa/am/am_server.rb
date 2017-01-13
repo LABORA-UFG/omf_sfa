@@ -187,6 +187,7 @@ end # module
 #
 rpc = OMF::SFA::AM::AMServer.rpc_config
 pubsub = OMF::SFA::AM::AMServer.pubsub_config
+puts "PUBSUB = #{pubsub}"
 
 opts = {
   :app_name => 'am_server',
@@ -226,10 +227,10 @@ if $config[:am_policies]
   opts[:am_policies][:require] = $config[:am_policies][:require]
   opts[:am_policies][:constructor] =  $config[:am_policies][:constructor]
 end
-if @@config[:central_broker] && @@config[:central_broker][:enabled]
+if $config[:central_broker] && $config[:central_broker][:enabled]
   opts[:central_broker] = {}
   opts[:central_broker][:subauthorities] = {}
-  @@config[:central_broker][:subauthorities].each do |subauthority|
+  $config[:central_broker][:subauthorities].each do |subauthority|
     opts[:central_broker][:subauthorities][subauthority[:domain]] = {}
     opts[:central_broker][:subauthorities][subauthority[:domain]][:address] = subauthority[:address]
     opts[:central_broker][:subauthorities][subauthority[:domain]][:cert]    = subauthority[:cert]

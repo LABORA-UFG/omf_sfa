@@ -1,5 +1,6 @@
-:amqp:
+:pubsub:
   :script_user: testbed
+  :protocol: amqp
   :password: lab251
   :server: pubsub
 :auth:
