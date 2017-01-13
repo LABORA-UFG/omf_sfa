@@ -43,3 +43,11 @@ omf_sfa_am:
   am_policies:
       require: omf-sfa/am/am_policies
       constructor: OMF::SFA::AM::AMPolicies
+
+  central_broker:
+      enabled: false
+      subauthorities:
+          domain:  omf:nitos
+          address: https://nitlab.inf.uth.gr:8001/
+          cert:    /root/.omf/central_broker_certs/nitlab_user_cert.pem
+          key:     /root/.omf/central_broker_certs/nitlab_user_cert.pkey

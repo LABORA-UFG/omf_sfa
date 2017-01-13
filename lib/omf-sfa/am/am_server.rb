@@ -187,7 +187,6 @@ end # module
 #
 rpc = OMF::SFA::AM::AMServer.rpc_config
 pubsub = OMF::SFA::AM::AMServer.pubsub_config
-puts "PUBSUB = #{pubsub}"
 
 opts = {
   :app_name => 'am_server',
