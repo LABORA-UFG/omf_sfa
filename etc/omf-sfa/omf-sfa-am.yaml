@@ -32,6 +32,12 @@ omf_sfa_am:
         :entity_key: ~/.omf/am.pkey
         :root_cert_dir: ~/.omf/trusted_roots
 
+  security:
+    trusted_roots: ~/.omf/trusted_roots
+
+  rest_authorization:
+    type: fibre
+
   mapping_submodule:
       require: omf-sfa/am/mapping_submodule
       constructor: MappingSubmodule

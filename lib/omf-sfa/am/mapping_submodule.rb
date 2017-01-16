@@ -30,26 +30,28 @@ class MappingSubmodule < OMF::Common::LObject
   def resolve(query, am_manager, authorizer)
     debug "MappingSubmodule: query: #{query}"
 
-    query[:resources].each do |res|
-      raise UnknownTypeException unless res[:type]
-      resolve_valid_from(res) 
-      resolve_valid_until(res)
+    if query[:resources] != nil
+      query[:resources].each do |res|
+        raise UnknownTypeException unless res[:type]
+        resolve_valid_from(res)
+        resolve_valid_until(res)
 
-      if res[:exclusive].nil? && query[:resources].first[:exclusive] #if exclusive is nil and at least one exclusive is given.
-        resolve_exclusive(res, query[:resources], am_manager, authorizer)
-      elsif res[:exclusive].nil?
-        resolve_exclusive(res, am_manager, authorizer)
+        if res[:exclusive].nil? && query[:resources].first[:exclusive] #if exclusive is nil and at least one exclusive is given.
+          resolve_exclusive(res, query[:resources], am_manager, authorizer)
+        elsif res[:exclusive].nil?
+          resolve_exclusive(res, am_manager, authorizer)
+        end
+
+        if res[:domain].nil? && query[:resources].first[:domain] #if domain is nil and at least one domain is given.
+          resolve_domain(res, query[:resources], am_manager, authorizer)
+        elsif res[:domain].nil?
+          resolve_domain(res, am_manager, authorizer)
+        end
+
+        resolve_resource(res, query[:resources], am_manager, authorizer)
+        res[:valid_from] = res[:valid_from].to_s
+        res[:valid_until] = res[:valid_until].to_s
       end
-
-      if res[:domain].nil? && query[:resources].first[:domain] #if domain is nil and at least one domain is given.
-        resolve_domain(res, query[:resources], am_manager, authorizer)
-      elsif res[:domain].nil?
-        resolve_domain(res, am_manager, authorizer)
-      end
-
-      resolve_resource(res, query[:resources], am_manager, authorizer)
-      res[:valid_from] = res[:valid_from].to_s
-      res[:valid_until] = res[:valid_until].to_s
     end
     debug "Map resolve response: #{query}"
     query

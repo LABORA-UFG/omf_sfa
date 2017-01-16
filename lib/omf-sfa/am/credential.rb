@@ -1,5 +1,6 @@
 require 'nokogiri'
 require 'omf_common/lobject'
+require "base64"
 
 module OMF::SFA::AM
   class Credential < OMF::Common::LObject
@@ -7,8 +8,7 @@ module OMF::SFA::AM
 
     @config = OMF::Common::YAML.load('omf-sfa-am', :path => [File.dirname(__FILE__) + '/../../../etc/omf-sfa'])[:omf_sfa_am]
 
-    rpc = @config[:endpoints].select { |v| v[:type] == 'xmlrpc' }.first
-    trusted_roots = File.expand_path(rpc[:trusted_roots])
+    trusted_roots = File.expand_path(@config[:security][:trusted_roots])
     certs = Dir.entries(trusted_roots)
     certs.delete("..")
     certs.delete(".")
@@ -44,18 +44,28 @@ module OMF::SFA::AM
       # </signatures>
     # </signed-credential>
 
+    def self.unmarshal_base64(base64_xml)
+      xml_text = Base64.decode64(base64_xml)
+      unmarshall(xml_text)
+    end
+
     def self.unmarshall(xml_text)
       xml_text = xml_text["geni_value"] if xml_text.kind_of?(Hash)
+
       signer_urn = verify_signed_xml(xml_text)
       cred = Nokogiri::XML.parse(xml_text)
-      unless cred.root.name == 'signed-credential'
-        raise "Expected 'signed-credential' but got '#{cred.root}'"
+      begin
+        unless cred.root.name == 'signed-credential'
+          raise "Expected 'signed-credential' but got '#{cred.root}'"
+        end
+        #puts @doc.to_xml
+        unless (type_el =  cred.xpath('//credential/type')[0])
+          raise "Credential doesn't contain 'type' element"
+        end
+        self.verify_type(type_el.content)
+      rescue
+        raise "Clearing House credential in wrong format"
       end
-      #puts @doc.to_xml
-      unless (type_el =  cred.xpath('//credential/type')[0])
-        raise "Credential doesn't contain 'type' element"
-      end
-      self.verify_type(type_el.content)
 
       #<owner_urn>urn:publicid:IDN+geni:gpo:gcf+user+alice</owner_urn>
       self.new(cred, signer_urn)
@@ -77,12 +87,12 @@ module OMF::SFA::AM
           "--trusted-pem #{r}"
         end.join(' ')
         cmd = "#{@@xmlsec} verify --enabled-key-data 'x509' #{trusted_pems} --print-xml-debug #{tf.path} 2> /dev/null"
-        #cmd = "#{@@xmlsec} verify --trusted-pem #{@@root_certs} --print-xml-debug #{tf.path} 2> /dev/null"
+
         out = []
         result = nil
         IO.popen(cmd) do |so|
           result = Nokogiri::XML.parse(so)
-          #debug result
+          # debug result
         end
         unless (result.xpath('/VerificationContext')[0]['status'] == 'succeeded')
           raise OMF::SFA::AM::InsufficientPrivilegesException.new("Error: Signature doesn't verify")#\n#{@signature.to_xml}"

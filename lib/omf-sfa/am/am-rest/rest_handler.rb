@@ -79,6 +79,18 @@ module OMF::SFA::AM::Rest
     end
   end
 
+  class ChCredentialMissing < RackException
+    def initialize(reason)
+      super 401, reason
+    end
+  end
+
+  class ChCredentialNotValid < RackException
+    def initialize(reason)
+      super 401, reason
+    end
+  end
+
   class RestHandler < OMF::Common::LObject
 
     def initialize(am_manager, opts = {})
@@ -225,7 +237,6 @@ module OMF::SFA::AM::Rest
 
 
     protected
-    
 
     def modify_resource(resource, description, opts)
       if description[:uuid]
@@ -288,7 +299,6 @@ module OMF::SFA::AM::Rest
       #opts[:target].inspect
       opts
     end
-    
 
     def parse_body(opts, allowed_formats = [:json, :xml])
       req = opts[:req]
@@ -350,7 +360,6 @@ module OMF::SFA::AM::Rest
     def dispatch(req)
       opts = {}
       populate_opts(req, opts)
-      #puts "OPTS>>>> #{opts.inspect}"
       method = req.request_method
       target = opts[:target] #|| self
       resource_uri = opts[:resource_uri]
