@@ -54,21 +54,19 @@ module OMF::SFA::AM
 
       signer_urn = verify_signed_xml(xml_text)
       cred = Nokogiri::XML.parse(xml_text)
-      begin
-        unless cred.root.name == 'signed-credential'
-          raise "Expected 'signed-credential' but got '#{cred.root}'"
-        end
-        #puts @doc.to_xml
-        unless (type_el =  cred.xpath('//credential/type')[0])
-          raise "Credential doesn't contain 'type' element"
-        end
-        self.verify_type(type_el.content)
-      rescue
-        raise "Clearing House credential in wrong format"
+      unless cred.root.name == 'signed-credential'
+        raise "Expected 'signed-credential' but got '#{cred.root}'"
       end
+      #puts @doc.to_xml
+      unless (type_el =  cred.xpath('//credential/type')[0])
+        raise "Credential doesn't contain 'type' element"
+      end
+      self.verify_type(type_el.content)
 
       #<owner_urn>urn:publicid:IDN+geni:gpo:gcf+user+alice</owner_urn>
       self.new(cred, signer_urn)
+    rescue
+      raise OMF::SFA::AM::Rest::ChCredentialNotValid.new("The Clearing House credential is in wrong format")
     end
 
     # The xml _content_ (provided as string) should

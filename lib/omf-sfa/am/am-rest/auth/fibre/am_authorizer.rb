@@ -1,7 +1,6 @@
-# require 'omf_common/lobject'
+
 require 'omf-sfa/am/default_authorizer'
-require 'omf-sfa/am/user_credential'
-# require 'omf-sfa/am/privilege_credential'
+require 'omf-sfa/am/utils'
 
 module OMF::SFA::AM::Rest::FibreAuth
 
@@ -17,82 +16,55 @@ module OMF::SFA::AM::Rest::FibreAuth
     #        @return [Account] The account associated with this instance
     attr_reader :account
 
-    # @!attribute [r] project
-    #        @return [OProject] The project associated with this account
-    attr_reader :project
-
     # @!attribute [r] user
     #        @return [User] The user associated with this membership
     attr_reader :user
 
 
-    def self.create_for_rest_request(authenticated, certificate, account, am_manager)
+    def self.create_for_test_request(credential, am_manager)
+      debug "Requester #{credential.signer_urn} :: #{credential.user_urn}"
 
-      if authenticated
-        raise OMF::SFA::AM::InsufficientPrivilegesException.new("Missing peer cert") unless certificate
-        peer = OMF::SFA::AM::UserCredential.unmarshall(certificate)
-        
-        debug "Requester: #{peer.subject} :: #{peer.user_urn}"
+      user_descr = {}
+      user_descr.merge!({urn: credential.user_urn}) unless credential.user_urn.nil?
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new "Credential owner URN is missing." if user_descr.empty?
 
-        unless peer.valid_at?
-          OMF::SFA::AM::InsufficientPrivilegesException.new "The certificate has expired or not valid yet. Check the dates."
-        end
-
-        user_descr = {}
-        user_descr.merge!({uuid: peer.user_uuid}) unless peer.user_uuid.nil?
-        user_descr.merge!({urn: peer.user_urn}) unless peer.user_urn.nil?
-        raise OMF::SFA::AM::InsufficientPrivilegesException.new "URN and UUID are missing." if user_descr.empty?
-
-        begin
-          if am_manager.kind_of? OMF::SFA::AM::CentralAMManager
-            user = am_manager.find_user(user_descr)
-          else
-            user = OMF::SFA::Model::User.first(user_descr)
-          end
-        rescue OMF::SFA::AM::UnavailableResourceException
-          raise OMF::SFA::AM::InsufficientPrivilegesException.new "User: '#{user_descr}' does not exist"
-        end
-
-        self.new(account, user, am_manager)
-      else
-        self.new(nil, nil, am_manager)
+      begin
+        user = am_manager.find_or_create_user(user_descr)
+      rescue OMF::SFA::AM::UnavailableResourceException
+        raise OMF::SFA::AM::InsufficientPrivilegesException.new "User: '#{user_descr}' does not exist and its not " +
+                  "possible to create it"
       end
-    end
 
+      account_urn = if credential.type == 'slice' then credential.target_urn else nil end
+      self.new(account_urn, user, credential, am_manager)
+    end
 
     ##### ACCOUNT
 
     def can_view_account?(account)
       debug "Check permission 'can_view_account?' (#{account == @account}, #{@permissions[:can_view_account?]})"
 
-      unless @permissions[:can_view_account?]
-        raise OMF::SFA::AM::InsufficientPrivilegesException.new
-      end
-
-      return true if @user.nil? && @account.nil?
-
-      return true if @account == @am_manager._get_nil_account || @user.has_nil_account?(@am_manager) 
-
-      @user.get_all_accounts.each do |acc|
+      return true if @permissions[:can_view_account?]
+      @user.accounts.each do |acc|
         return true if acc == account
       end
-      raise OMF::SFA::AM::InsufficientPrivilegesException.new
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to view this account')
     end
 
     def can_renew_account?(account, expiration_time)
       debug "Check permission 'can_renew_account?' (#{account == @account}, #{@permissions[:can_renew_account?]})"
-      unless (@account == @am_manager._get_nil_account || @user.has_nil_account?(@am_manager)) || (account == @account && @permissions[:can_renew_account?])
-        raise OMF::SFA::AM::InsufficientPrivilegesException.new
+      if account == @account && @permissions[:can_renew_account?] && @credential.valid_at?(expiration_time)
+        return true
       end
-      true
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to renew this account')
     end
 
     def can_close_account?(account)
       debug "Check permission 'can_close_account?' (#{account == @account}, #{@permissions[:can_close_account?]})"
-      unless (@account == @am_manager._get_nil_account || @user.has_nil_account?(@am_manager)) || (account == @account && @permissions[:can_close_account?])
-        raise OMF::SFA::AM::InsufficientPrivilegesException.new
+      if account == @account && @permissions[:can_close_account?]
+        return true
       end
-      true
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to close this account')
     end
 
     ##### RESOURCE
@@ -100,114 +72,93 @@ module OMF::SFA::AM::Rest::FibreAuth
     def can_create_resource?(resource, type)
       type = type.downcase
       debug "Check permission 'can_create_resource?' (#{type == 'lease'}, #{@permissions[:can_create_resource?]})"
-      unless (@account == @am_manager._get_nil_account || @user.has_nil_account?(@am_manager)) || (type == 'lease' && @permissions[:can_create_resource?])
-        raise OMF::SFA::AM::InsufficientPrivilegesException.new
+      if (type == 'lease' && @permissions[:can_modify_lease?]) || @permissions[:can_create_resource?]
+        return true
       end
-      true
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new("You have no permission to create '#{type}' resource")
     end
 
     ##### LEASE
 
     def can_modify_lease?(lease)
       debug "Check permission 'can_modify_lease?' (#{@account == lease.account}, #{@permissions[:can_modify_lease?]})"
-      unless (@account == @am_manager._get_nil_account || @user.has_nil_account?(@am_manager)) || (@account == lease.account && @permissions[:can_modify_lease?])
-        raise OMF::SFA::AM::InsufficientPrivilegesException.new
+      if @account == lease.account && @permissions[:can_modify_lease?]
+        return true
       end
-      true
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to modify this lease')
     end
 
     def can_release_lease?(lease)
       debug "Check permission 'can_release_lease?' (#{@account == lease.account}, #{@permissions[:can_release_lease?]})"
-      unless (@account == @am_manager._get_nil_account || @user.has_nil_account?(@am_manager)) || (@account == lease.account && @permissions[:can_release_lease?])
-        raise OMF::SFA::AM::InsufficientPrivilegesException.new
+      if @account == lease.account && @permissions[:can_release_lease?]
+        return true
       end
-      true
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to release this lease')
     end
 
     protected
 
-    def initialize(account, user, am_manager)
-      debug "Initialize for account: #{account} and user: #{user.inspect})"
+    def initialize(account_urn, user, credential, am_manager)
+      super()
+
+      debug "Initialize for account: #{account_urn} and user: #{user.inspect})"
       @user = user
+      @credential = credential
       @am_manager = am_manager
+      @permissions = create_credential_permissions(credential)
+      @account = nil
 
-      if @user.nil?
-        permissions = {
-          can_create_account?:   false,
-          can_view_account?:     true,
-          can_renew_account?:    false,
-          can_close_account?:    false,
-          # RESOURCE
-          can_create_resource?:  false,
-          can_modify_resource?:  false,
-          can_view_resource?:    true,
-          can_release_resource?: false,
-          # LEASE
-          can_view_lease?:       true,
-          can_modify_lease?:     false,
-          can_release_lease?:    false
-        }
-        super(permissions)
-      else
-        super()
-        # @account = am_manager.find_account({name: account}, self) if account
+      unless account_urn.nil?
+        acc_name = OMF::SFA::AM::Utils::create_account_name_from_urn(account_urn)
         if am_manager.kind_of? OMF::SFA::AM::CentralAMManager
-          acc_desc = UUID.validate(account) ? {uuid: account} : account.starts_with?('urn:publicid:IDN') ? {urn: account} : {name: account}
-          @account = am_manager.find_account(acc_desc, self).first
-          if @account[:closed]
-            raise OMF::SFA::AM::InsufficientPrivilegesException.new("The account '#{@account.name}' is closed.")
-          end
-
-          unless @user.has_nil_account?(am_manager)
-            raise OMF::SFA::AM::InsufficientPrivilegesException.new("User '#{@user.name}' does not have sufficient privileges to perform this request.")
-          end
+          @account = {urn: account_urn, name: acc_name}
         else
-          @account = OMF::SFA::Model::Account.first({name: account}) if account
-          @account = @user.accounts.first if @account.nil?
+          @account = am_manager.find_or_create_account({:urn => account_urn, :name => acc_name}, self)
+
+          if credential.type == 'slice' and @account.valid_until < credential.valid_until
+            debug "Renewing account '#{@account.name}' until '#{credential.valid_until}'"
+            am_manager.renew_account_until(@account, credential.valid_until, self)
+          end
 
           if @account.closed?
-            raise OMF::SFA::AM::InsufficientPrivilegesException.new("The account '#{@account.name}' is closed.")
+            if @permissions[:can_create_account?]
+              @account.closed_at = nil
+            else
+              raise OMF::SFA::AM::InsufficientPrivilegesException.new("The account is closed and you don't have " +
+                                                                          "the privilege to enable a closed account")
+            end
           end
-
-          # @project = @account.project
-          unless @user.has_nil_account?(am_manager) || @account.users.include?(@user)
-            raise OMF::SFA::AM::InsufficientPrivilegesException.new("The user '#{@user.name}' does not belong to the account '#{account}'")
-          end
+          @account.add_user(@user) unless @account.users.include?(@user)
+          @account.save
         end
+      end
+    end
 
-        if @account == am_manager._get_nil_account
-          @permissions = {
-            can_create_account?:   true,
-            can_view_account?:     true,
-            can_renew_account?:    true,
-            can_close_account?:    true,
-            # RESOURCE
-            can_create_resource?:  true,
-            can_modify_resource?:  true,
-            can_view_resource?:    true,
-            can_release_resource?: true,
-            # LEASE
-            can_view_lease?:       true,
-            can_modify_lease?:     true,
-            can_release_lease?:    true
-          } 
-        else
-          @permissions = {
-            can_create_account?:   false,
-            can_view_account?:     true,
-            can_renew_account?:    true,
-            can_close_account?:    true,
-            # RESOURCE
-            can_create_resource?:  true,
-            can_modify_resource?:  false,
-            can_view_resource?:    true,
-            can_release_resource?: false,
-            # LEASE
-            can_view_lease?:       true,
-            can_modify_lease?:     true,
-            can_release_lease?:    true
-          }
-        end
+    ##
+    # Create permissions by credential privileges
+    #
+    def create_credential_permissions(credential)
+      all_privileges = credential.privilege?('*')
+      privileges = {
+          # RESOURCE
+          can_create_resource?:  (all_privileges or credential.privilege?('control')),
+          can_modify_resource?:  (all_privileges or credential.privilege?('control')),
+          can_view_resource?:    (all_privileges or credential.privilege?('info')),
+          can_release_resource?: (all_privileges or credential.privilege?('control')),
+          # LEASE
+          can_view_lease?:       (all_privileges or credential.privilege?('info')),
+          can_modify_lease?:     (all_privileges or credential.privilege?('refresh')),
+          can_release_lease?:    (all_privileges or credential.privilege?('refresh'))
+      }
+
+      if credential.type == 'slice'
+        privileges.merge!(
+            {
+                can_create_account?:   (all_privileges or credential.privilege?('control')),
+                can_view_account?:     (all_privileges or credential.privilege?('info')),
+                can_renew_account?:    (all_privileges or credential.privilege?('refresh')),
+                can_close_account?:    (all_privileges or credential.privilege?('control'))
+            })
       end
     end
 

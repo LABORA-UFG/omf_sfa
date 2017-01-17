@@ -7,6 +7,10 @@ require 'rack'
 module OMF::SFA::AM::Rest::FibreAuth
   class SessionAuthenticator < OMF::Common::LObject
 
+    @@store = {}
+    @@active = false
+    @@expire_after = 2592000
+
     def self.active?
       @@active
     end
@@ -24,8 +28,6 @@ module OMF::SFA::AM::Rest::FibreAuth
       self[:authenticated] = false
     end
 
-    @@store = {}
-
     def self.[](key)
       (@@store[key] || {})[:value]
     end
@@ -33,10 +35,6 @@ module OMF::SFA::AM::Rest::FibreAuth
     def self.[]=(key, value)
       @@store[key] = {:value => value, :time => Time.now } # add time for GC
     end
-
-    @@active = false
-    # Expire authenticated session after being idle for that many seconds
-    @@expire_after = 2592000
 
     #
     # opts -
@@ -60,80 +58,36 @@ module OMF::SFA::AM::Rest::FibreAuth
       # Check if credential was informed and if is valid
       headers = get_request_headers(env)
       unless headers.has_key? 'Ch-Credential'
-        raise OMF::SFA::AM::Rest::ChCredentialMissing.new('The Clearing House credential was not passed in the CH-Credential header')
+        raise OMF::SFA::AM::Rest::ChCredentialMissing.new('The Clearing House credential was not passed in the ' +
+                                                              'CH-Credential header')
       end
-
       credential = OMF::SFA::AM::PrivilegeCredential.unmarshal_base64(headers['Ch-Credential'])
       unless credential.valid_at?
-        raise OMF::SFA::AM::Rest::ChCredentialNotValid.new('The Clearing House credential have expired or not valid yet. Check dates')
+        raise OMF::SFA::AM::Rest::ChCredentialNotValid.new('The Clearing House credential have expired or not valid ' +
+                                                               'yet. Check dates')
       end
 
-      if method == 'GET'
-        puts "GET FROM FIBRE"
-        req.session[:authorizer] = AMAuthorizer.create_for_rest_request(env['rack.authenticated'], env['rack.peer_cert'], req.params["account"], @opts[:am_manager])
-      elsif method == 'OPTIONS'
-        #do nothing for OPTIONS  
-      elsif env["REQUEST_PATH"] == '/mapper'
-        req.session[:authorizer] = AMAuthorizer.create_for_rest_request(env['rack.authenticated'], env['rack.peer_cert'], req.params["account"], @opts[:am_manager])
-      else
-        body = req.body
-        raise OMF::SFA::AM::Rest::EmptyBodyException.new if body.nil?
-        (body = body.string) if body.is_a? StringIO
-        if body.is_a? Tempfile
-          tmp = body
-          body = body.read
-          tmp.rewind
-        end
-        raise OMF::SFA::AM::Rest::EmptyBodyException.new if body.empty?
-
-        content_type = req.content_type
-        raise OMF::SFA::AM::Rest::UnsupportedBodyFormatException.new unless content_type == 'application/json'
-
-        jb = JSON.parse(body)
-        account = nil
-        if jb.kind_of? Hash
-          jb['account'] = jb.delete('account_attributes') if jb['account_attributes']
-          account = jb['account'].nil? ? nil : jb['account']['name'] || jb['account']['uuid'] || jb['account']['urn']
-        end
-        
-        req.session[:authorizer] = AMAuthorizer.create_for_rest_request(env['rack.authenticated'], env['rack.peer_cert'], account, @opts[:am_manager])
+      # Option method don't require any authorization
+      if method == 'OPTIONS'
+        status, headers, body = @app.call(env)
+        return [status, headers, body]
       end
+
+      req.session[:authorizer] = OMF::SFA::AM::Rest::FibreAuth::AMAuthorizer.create_for_test_request(
+          credential,
+          @opts[:am_manager]
+      )
 
       status, headers, body = @app.call(env)
-      # if sid
-      #   headers['Set-Cookie'] = "sid=#{sid}"  ##: name2=value2; Expires=Wed, 09-Jun-2021 ]
-      # end
       [status, headers, body]
     rescue OMF::SFA::AM::InsufficientPrivilegesException => ex
-      body = {
-        :error => {
-          :reason => ex.to_s,
-        }
-      }
-      warn "ERROR: #{ex}"
-      # debug ex.backtrace.join("\n")
-      
-      return [401, { "Content-Type" => 'application/json', 'Access-Control-Allow-Origin' => '*', 'Access-Control-Allow-Methods' => 'GET, PUT, POST, OPTIONS' }, JSON.pretty_generate(body)]
-    rescue OMF::SFA::AM::Rest::EmptyBodyException => ex
-      body = {
-        :error => {
-          :reason => ex.to_s,
-        }
-      }
-      warn "ERROR: #{ex}"
-      # debug ex.backtrace.join("\n")
-      
-      return [400, { "Content-Type" => 'application/json', 'Access-Control-Allow-Origin' => '*', 'Access-Control-Allow-Methods' => 'GET, PUT, POST, OPTIONS' }, JSON.pretty_generate(body)]
-    rescue OMF::SFA::AM::Rest::UnsupportedBodyFormatException => ex
-      body = {
-        :error => {
-          :reason => ex.to_s,
-        }
-      }
-      warn "ERROR: #{ex}"
-      # debug ex.backtrace.join("\n")
-      
-      return [400, { "Content-Type" => 'application/json', 'Access-Control-Allow-Origin' => '*', 'Access-Control-Allow-Methods' => 'GET, PUT, POST, OPTIONS' }, JSON.pretty_generate(body)]
+      return create_error_return(401, ex.to_s)
+    rescue OMF::SFA::AM::Rest::EmptyBodyException, OMF::SFA::AM::Rest::UnsupportedBodyFormatException => ex
+      return create_error_return(400, ex.to_s)
+    # Exceptions that extends RackException
+    rescue OMF::SFA::AM::Rest::ChCredentialMissing, OMF::SFA::AM::Rest::ChCredentialNotValid => ex
+      warn ex.to_s
+      return ex.reply
     end
 
     ##
@@ -147,34 +101,29 @@ module OMF::SFA::AM::Rest::FibreAuth
                           .flatten]
     end
 
-    # def init_fake_root
-    #   unless @@def_authenticator
-    #     auth = {}
-    #     [
-    #       # ACCOUNT
-    #       :can_create_account?, # ()
-    #       :can_view_account?, # (account)
-    #       :can_renew_account?, # (account, until)
-    #       :can_close_account?, # (account)
-    #       # RESOURCE
-    #       :can_create_resource?, # (resource_descr, type)
-    #       :can_modify_resource?, # (resource_descr, type)
-    #       :can_view_resource?, # (resource)
-    #       :can_release_resource?, # (resource)
-    #       # LEASE
-    #       :can_create_lease?, # (lease)
-    #       :can_view_lease?, # (lease)
-    #       :can_modify_lease?, # (lease)
-    #       :can_release_lease?, # (lease)
-    #     ].each do |m| auth[m] = true end
-    #     require 'omf-sfa/am/default_authorizer'
-    #     @@def_authenticator = OMF::SFA::AM::DefaultAuthorizer.new(auth)
-    #   end
-    #   Thread.current["authenticator"] = @@def_authenticator
-    # end
+    ##
+    # generate Rack error return that can happens while authorization is performed
+    #
+    def create_error_return(code, message)
+      warn "ERROR: #{message}"
+      [
+          code,
+          {
+              'Content-Type' => 'application/json',
+              'Access-Control-Allow-Origin' => '*',
+              'Access-Control-Allow-Methods' => 'GET, PUT, POST, OPTIONS'
+          },
+          JSON.pretty_generate(
+              {
+                  :error => {
+                      :reason => message,
+                  }
+              }
+          )
+      ]
+    end
 
   end # class
-
 end # module
 
 
