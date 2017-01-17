@@ -48,7 +48,7 @@ am_sched.initialize_event_scheduler
 
 use Rack::Session::Pool
 
-require 'omf-sfa/am/am-rest/session_authenticator'
+require 'omf-sfa/am/am-rest/auth/session_authenticator_handler'
 
 map RPC_URL do
   require 'omf-sfa/am/am-rpc/am_rpc_service'
@@ -75,7 +75,7 @@ map RPC_URL_V3 do
 end
 
 map '/slices' do
-  use OMF::SFA::AM::Rest::SessionAuthenticator, #:expire_after => 10,
+  use OMF::SFA::AM::Rest::Auth::SessionAuthenticatorHandler, #:expire_after => 10,
           :login_url => (REQUIRE_LOGIN ? '/login' : nil),
           :no_session => ['^/$', "^#{RPC_URL}", '^/login', '^/logout', '^/readme', '^/assets'],
           :am_manager => am_mgr
@@ -85,7 +85,7 @@ end
 
 
 map "/resources" do
-  use OMF::SFA::AM::Rest::SessionAuthenticator, #:expire_after => 10,
+  use OMF::SFA::AM::Rest::Auth::SessionAuthenticatorHandler, #:expire_after => 10,
           :login_url => (REQUIRE_LOGIN ? '/login' : nil),
           :no_session => ['^/$', "^#{RPC_URL}", '^/login', '^/logout', '^/readme', '^/assets'],
           :am_manager => am_mgr
@@ -96,7 +96,7 @@ map "/resources" do
 end
 
 map "/mapper" do
-  use OMF::SFA::AM::Rest::SessionAuthenticator, #:expire_after => 10,
+  use OMF::SFA::AM::Rest::Auth::SessionAuthenticatorHandler, #:expire_after => 10,
           :login_url => (REQUIRE_LOGIN ? '/login' : nil),
           :no_session => ['^/$', "^#{RPC_URL}", '^/login', '^/logout', '^/readme', '^/assets'],
           :am_manager => am_mgr
@@ -107,7 +107,7 @@ map "/mapper" do
 end
 
 map "/actions" do 
-  use OMF::SFA::AM::Rest::SessionAuthenticator, #:expire_after => 10,
+  use OMF::SFA::AM::Rest::Auth::SessionAuthenticatorHandler, #:expire_after => 10,
           :login_url => (REQUIRE_LOGIN ? '/login' : nil),
           :no_session => ['^/$', "^#{RPC_URL}", '^/login', '^/logout', '^/readme', '^/assets'],
           :am_manager => am_mgr

@@ -3,7 +3,7 @@ require 'omf-sfa/am/default_authorizer'
 require 'omf-sfa/am/user_credential'
 # require 'omf-sfa/am/privilege_credential'
 
-module OMF::SFA::AM::Rest
+module OMF::SFA::AM::Rest::FibreAuth
 
   include OMF::Common
 

@@ -1,5 +1,16 @@
 #!/bin/bash
 
+install_omf() {
+    if [ ! $(gem list -i omf_common) ]; then
+        cd /root
+        git clone -b amqp https://github.com/LABORA-UFG/omf6-testbed.git
+        cd omf6-testbed
+        ./installer.sh <<< $"13"
+    fi
+}
+
+install_omf
+
 #if $OMF_SFA_HOME directory does not exist or is empty
 if [ ! -f "$INVENTORY_PATH" ]; then
     echo "###############INSTALLATION OF THE MODULES###############"
@@ -30,28 +41,28 @@ if [ ! -f "$INVENTORY_PATH" ]; then
     #End of Broker installation
 fi
 
-if ! gem list nitos_testbed_rc -i; then
-    #Start of NITOS Testbed RCs installation
-    echo "###############INSTALLING NITOS TESTBED RCS###############"
-    gem install nitos_testbed_rc
-    install_ntrc
-
-    ##START OF CERTIFICATES CONFIGURATION
-    echo "###############CONFIGURING NITOS TESTBED RCS CERTIFICATES###############"
-    omf_cert.rb -o /root/.omf/user_factory.pem --email user_factory@$DOMAIN --resource-type user_factory --resource-id amqp://user_factory@$XMPP_DOMAIN --root /root/.omf/trusted_roots/root.pem --duration 50000000 create_resource
-    omf_cert.rb -o /root/.omf/cm_factory.pem --email cm_factory@$DOMAIN --resource-type cm_factory --resource-id amqp://cm_factory@$XMPP_DOMAIN --root /root/.omf/trusted_roots/root.pem --duration 50000000 create_resource
-    omf_cert.rb -o /root/.omf/frisbee_factory.pem --email frisbee_factory@$DOMAIN --resource-type frisbee_factory --resource-id amqp://frisbee_factory@$XMPP_DOMAIN --root /root/.omf/trusted_roots/root.pem --duration 50000000 create_resource
-    cp -r /root/.omf/trusted_roots/ /etc/nitos_testbed_rc/
-    ##END OF CERTIFICATES CONFIGURATION
-    #End of NITOS Testbed RCs installation
-fi
+#if ! gem list nitos_testbed_rc -i; then
+#    #Start of NITOS Testbed RCs installation
+#    echo "###############INSTALLING NITOS TESTBED RCS###############"
+#    gem install nitos_testbed_rc
+#    install_ntrc
+#
+#    ##START OF CERTIFICATES CONFIGURATION
+#    echo "###############CONFIGURING NITOS TESTBED RCS CERTIFICATES###############"
+#    omf_cert.rb -o /root/.omf/user_factory.pem --email user_factory@$DOMAIN --resource-type user_factory --resource-id amqp://user_factory@$XMPP_DOMAIN --root /root/.omf/trusted_roots/root.pem --duration 50000000 create_resource
+#    omf_cert.rb -o /root/.omf/cm_factory.pem --email cm_factory@$DOMAIN --resource-type cm_factory --resource-id amqp://cm_factory@$XMPP_DOMAIN --root /root/.omf/trusted_roots/root.pem --duration 50000000 create_resource
+#    omf_cert.rb -o /root/.omf/frisbee_factory.pem --email frisbee_factory@$DOMAIN --resource-type frisbee_factory --resource-id amqp://frisbee_factory@$XMPP_DOMAIN --root /root/.omf/trusted_roots/root.pem --duration 50000000 create_resource
+#    cp -r /root/.omf/trusted_roots/ /etc/nitos_testbed_rc/
+#    ##END OF CERTIFICATES CONFIGURATION
+#    #End of NITOS Testbed RCs installation
+#fi
 
 if [ "$(ls -A /root/testbed-files)" ]; then
 
     ##START OF - COPING CONFIGURATION FILES
     echo "###############COPYING CONFIGURATION FILES TO THE RIGHT PLACE###############"
     cp -r /root/testbed-files/* /
-    rm -rf /root/testbed-files
+    #rm -rf /root/testbed-files
     ##END OF - COPING CONFIGURATION FILES
 
     #START OF PXE CONFIGURATION
@@ -64,21 +75,21 @@ if [ "$(ls -A /root/testbed-files)" ]; then
     #END OF PXE CONFIGURATION
 fi
 
-echo "Starting dnsmasq"
-/etc/init.d/dnsmasq start
+#echo "Starting dnsmasq"
+#/etc/init.d/dnsmasq start
 
 echo "Executing omf_sfa"
 bundle exec ruby -I lib lib/omf-sfa/am/am_server.rb start &> /var/log/omf-sfa.log &
 
-echo "Executing NITOS Testbed RCs"
+#echo "Executing NITOS Testbed RCs"
 
 #user_proxy &> /var/log/ntrc/user_proxy.log &
 #frisbee_proxy &> /var/log/ntrc/frisbee_proxy.log &
 #cm_proxy &> /var/log/ntrc/cm_proxy.log &
 
-start ntrc
+#start ntrc
 
-sleep 10s
+#sleep 10s
 
 #/root/omf_sfa/bin/create_resource -t node -c /root/omf_sfa/bin/conf.yaml -i /root/resources.json
 

@@ -1,12 +1,6 @@
 :auth:
-  :entity_cert: /home/vinicius/.omf/user_cert.pem
-  :entity_key: /home/vinicius/.omf/user_cert.pkey
-  :root_cert_dir: /home/vinicius/.omf/trusted_roots
-:amqp:
-  :server: localhost
+  :entity_cert: /root/.omf/user_cert.pem
+  :entity_key: /root/.omf/user_cert.pkey
+:rest:
+  :server: broker
   :port: 8001
-  :username: testbed
-  :password: lab251
-  :server: pubsub
-  :topic: am_controller
-  :op_mode: development

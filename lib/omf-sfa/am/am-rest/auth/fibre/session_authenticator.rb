@@ -1,10 +1,10 @@
 
 require 'omf_common/lobject'
-require 'omf-sfa/am/am-rest/am_authorizer'
+require 'omf-sfa/am/am-rest/auth/fibre/am_authorizer'
 require 'rack'
 
 
-module OMF::SFA::AM::Rest
+module OMF::SFA::AM::Rest::FibreAuth
   class SessionAuthenticator < OMF::Common::LObject
 
     def self.active?
@@ -56,39 +56,20 @@ module OMF::SFA::AM::Rest
     def call(env)
       req = ::Rack::Request.new(env)
       method = req.request_method
-      # sid = nil
-      path_info = req.path_info
-      #puts "REQUEST(#{self.object_id}): #{path_info}"
 
-      # unless @opts[:no_session].find {|rx| rx.match(path_info) }
-      #   # unless sid = req.cookies['sid']
-      #   #   sid = "s#{(rand * 10000000).to_i}_#{(rand * 10000000).to_i}"
-      #   #   debug "Setting session for '#{req.path_info}' to '#{sid}'"
-      #   # end
-      #   # Thread.current["sessionID"] = sid
-      #   # If 'login_url' is defined, check if this session is authenticated
-      #   login_url = @opts[:login_url]
-      #   if login_url
-      #     unless login_url == req.path_info
-      #       puts ">>>>>> CHECKING FOR LOGIN #{login_url.class}"
-      #       if authenticated = self.class[:authenticated]
-      #         # Check if it hasn't imed out
-      #         if self.class[:valid_until] < Time.now
-      #           debug "Session '#{sid}' expired"
-      #           authenticated = false
-      #         end
-      #       end
-      #       unless authenticated
-      #         return [301, {'Location' => login_url, "Content-Type" => ""}, ['Login first']]
-      #       end
-      #     end
-      #   else
-      #     # init_fake_root
-      #   end
-      #   self.class[:valid_until] = Time.now + @@expire_after
-      # end
+      # Check if credential was informed and if is valid
+      headers = get_request_headers(env)
+      unless headers.has_key? 'Ch-Credential'
+        raise OMF::SFA::AM::Rest::ChCredentialMissing.new('The Clearing House credential was not passed in the CH-Credential header')
+      end
+
+      credential = OMF::SFA::AM::PrivilegeCredential.unmarshal_base64(headers['Ch-Credential'])
+      unless credential.valid_at?
+        raise OMF::SFA::AM::Rest::ChCredentialNotValid.new('The Clearing House credential have expired or not valid yet. Check dates')
+      end
 
       if method == 'GET'
+        puts "GET FROM FIBRE"
         req.session[:authorizer] = AMAuthorizer.create_for_rest_request(env['rack.authenticated'], env['rack.peer_cert'], req.params["account"], @opts[:am_manager])
       elsif method == 'OPTIONS'
         #do nothing for OPTIONS  
@@ -96,17 +77,17 @@ module OMF::SFA::AM::Rest
         req.session[:authorizer] = AMAuthorizer.create_for_rest_request(env['rack.authenticated'], env['rack.peer_cert'], req.params["account"], @opts[:am_manager])
       else
         body = req.body
-        raise EmptyBodyException.new if body.nil?
+        raise OMF::SFA::AM::Rest::EmptyBodyException.new if body.nil?
         (body = body.string) if body.is_a? StringIO
         if body.is_a? Tempfile
           tmp = body
           body = body.read
           tmp.rewind
         end
-        raise EmptyBodyException.new if body.empty?
+        raise OMF::SFA::AM::Rest::EmptyBodyException.new if body.empty?
 
         content_type = req.content_type
-        raise UnsupportedBodyFormatException.new unless content_type == 'application/json'
+        raise OMF::SFA::AM::Rest::UnsupportedBodyFormatException.new unless content_type == 'application/json'
 
         jb = JSON.parse(body)
         account = nil
@@ -133,7 +114,7 @@ module OMF::SFA::AM::Rest
       # debug ex.backtrace.join("\n")
       
       return [401, { "Content-Type" => 'application/json', 'Access-Control-Allow-Origin' => '*', 'Access-Control-Allow-Methods' => 'GET, PUT, POST, OPTIONS' }, JSON.pretty_generate(body)]
-    rescue EmptyBodyException => ex
+    rescue OMF::SFA::AM::Rest::EmptyBodyException => ex
       body = {
         :error => {
           :reason => ex.to_s,
@@ -143,7 +124,7 @@ module OMF::SFA::AM::Rest
       # debug ex.backtrace.join("\n")
       
       return [400, { "Content-Type" => 'application/json', 'Access-Control-Allow-Origin' => '*', 'Access-Control-Allow-Methods' => 'GET, PUT, POST, OPTIONS' }, JSON.pretty_generate(body)]
-    rescue UnsupportedBodyFormatException => ex
+    rescue OMF::SFA::AM::Rest::UnsupportedBodyFormatException => ex
       body = {
         :error => {
           :reason => ex.to_s,
@@ -155,7 +136,16 @@ module OMF::SFA::AM::Rest
       return [400, { "Content-Type" => 'application/json', 'Access-Control-Allow-Origin' => '*', 'Access-Control-Allow-Methods' => 'GET, PUT, POST, OPTIONS' }, JSON.pretty_generate(body)]
     end
 
-    @@def_authenticator = nil
+    ##
+    # get request headers based on call env
+    #
+    def get_request_headers(env)
+      headers = Hash[*env.select {|k,v| k.start_with? 'HTTP_'}
+                          .collect {|k,v| [k.sub(/^HTTP_/, ''), v]}
+                          .collect {|k,v| [k.split('_').collect(&:capitalize).join('-'), v]}
+                          .sort
+                          .flatten]
+    end
 
     # def init_fake_root
     #   unless @@def_authenticator
