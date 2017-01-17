@@ -1,7 +1,7 @@
 #!/bin/bash
 
 install_omf() {
-    if [ ! $(gem list -i omf_common) ]; then
+    if ! $(gem list -i omf_common); then
         cd /root
         git clone -b amqp https://github.com/LABORA-UFG/omf6-testbed.git
         cd omf6-testbed
