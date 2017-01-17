@@ -78,8 +78,24 @@ fi
 #echo "Starting dnsmasq"
 #/etc/init.d/dnsmasq start
 
+run_broker() {
+    bundle exec ruby -I lib lib/omf-sfa/am/am_server.rb start &> /var/log/omf-sfa.log &
+}
+
+debug_broker() {
+    bundle exec rdebug-ide --host 0.0.0.0 --port 1234 --dispatcher-port 26162 -- /usr/local/bin/bundle exec ruby -I lib lib/omf-sfa/am/am_server.rb start
+}
+
 echo "Executing omf_sfa"
-bundle exec ruby -I lib lib/omf-sfa/am/am_server.rb start &> /var/log/omf-sfa.log &
+
+echo "Do you want to run in debug mode? (Y/n)"
+read option
+case $option in
+    Y|y) debug_broker ;;
+    N|n) run_broker ;;
+    *) debug_broker ;;
+esac
+
 
 #echo "Executing NITOS Testbed RCs"
 
