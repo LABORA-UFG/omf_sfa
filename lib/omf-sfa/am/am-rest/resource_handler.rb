@@ -73,8 +73,9 @@ module OMF::SFA::AM::Rest
       else
         debug "list all resources."
         resource = @am_manager.find_all_resources_for_account(opts[:account], authenticator)
+        find_all = true
       end
-      raise UnknownResourceException, "No resources matching the request." if resource.empty?
+      raise UnknownResourceException, "No resources matching the request." if (resource.empty? && find_all.nil?)
       show_resource(resource, opts)
     end
 
