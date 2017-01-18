@@ -1,17 +1,7 @@
 #!/bin/bash
 
-install_omf() {
-    if ! $(gem list -i omf_common); then
-        cd /root
-        git clone -b amqp https://github.com/LABORA-UFG/omf6-testbed.git
-        cd omf6-testbed
-        ./installer.sh <<< $"13"
-    fi
-}
-
-install_omf
-
-#if $OMF_SFA_HOME directory does not exist or is empty
+#sqlite3 is one of the gems installed for Broker. Here we check if it is already installed.
+#We assume that if it is not installed it means that the Broker are not installed too.
 if [ ! -f "$INVENTORY_PATH" ]; then
     echo "###############INSTALLATION OF THE MODULES###############"
     #Start of Broker installation
@@ -62,7 +52,7 @@ if [ "$(ls -A /root/testbed-files)" ]; then
     ##START OF - COPING CONFIGURATION FILES
     echo "###############COPYING CONFIGURATION FILES TO THE RIGHT PLACE###############"
     cp -r /root/testbed-files/* /
-    #rm -rf /root/testbed-files
+    rm -rf /root/testbed-files
     ##END OF - COPING CONFIGURATION FILES
 
     #START OF PXE CONFIGURATION
@@ -79,22 +69,22 @@ fi
 #/etc/init.d/dnsmasq start
 
 run_broker() {
-    bundle exec ruby -I lib lib/omf-sfa/am/am_server.rb start &> /var/log/omf-sfa.log &
+    cd /root/omf_sfa
+    bundle exec ruby -I lib /root/omf_sfa/lib/omf-sfa/am/am_server.rb start &> /var/log/omf-sfa.log &
 }
 
 debug_broker() {
+    cd /root/omf_sfa
     bundle exec rdebug-ide --host 0.0.0.0 --port 1234 --dispatcher-port 26162 -- /usr/local/bin/bundle exec ruby -I lib lib/omf-sfa/am/am_server.rb start
 }
 
 echo "Executing omf_sfa"
-
-echo "Do you want to run in debug mode? (Y/n)"
-read option
-case $option in
-    Y|y) debug_broker ;;
-    N|n) run_broker ;;
-    *) debug_broker ;;
-esac
+export $(< $OMF_SFA_HOME/dockerization/ubuntu14.04/broker.env)
+if [ "$DEBUG" == 1 ]; then
+    debug_broker;
+else
+    run_broker;
+fi
 
 
 #echo "Executing NITOS Testbed RCs"

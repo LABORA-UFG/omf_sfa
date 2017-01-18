@@ -1,7 +1,7 @@
 FROM ubuntu:14.04
 
 ENV OMF_SFA_HOME=/root/omf_sfa
-ENV INVENTORY_PATH=/root/omf_sfa/inventory.rb
+ENV INVENTORY_PATH=/root/omf_sfa/inventory.db
 ENV DOMAIN=ufg.br
 ENV AM_SERVER_DOMAIN=ufg.br
 ENV XMPP_DOMAIN=ufg.br
@@ -26,16 +26,9 @@ RUN apt-get install -y --force-yes \
    wget \
    zlib1g-dev
 
-RUN cd /tmp \
-   && wget http://ftp.ruby-lang.org/pub/ruby/2.1/ruby-2.1.5.tar.gz \
-   && tar -xvzf ruby-2.1.5.tar.gz \
-   && cd ruby-2.1.5/ \
-   && ./configure --prefix=/usr/local \
-   && make \
-   && make install \
-   && rm -rf /tmp/ruby
-
-RUN gem install bundler --no-ri --no-rdoc
+RUN mkdir -p /root/omf6-testbed
+RUN git clone -b amqp https://github.com/LABORA-UFG/omf6-testbed.git /root/omf6-testbed
+RUN bash -c '/root/omf6-testbed/installer.sh <<< $"13"'
 
 EXPOSE 8001/tcp
 
@@ -43,7 +36,7 @@ EXPOSE 8001/tcp
 COPY testbed-files /root/testbed-files/
 #END COPY CONFIGURATION FILE
 
-#PULL FROM GIT HUB AND RUN BROKER
+#COPY AND SET THE ENTRYPOINT
 COPY entrypoint.sh /usr/bin/
 RUN chmod 755 /usr/bin/entrypoint.sh
 ENTRYPOINT ["/usr/bin/entrypoint.sh"]
