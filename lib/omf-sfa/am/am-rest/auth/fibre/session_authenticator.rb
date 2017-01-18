@@ -66,6 +66,12 @@ module OMF::SFA::AM::Rest::FibreAuth
         raise OMF::SFA::AM::Rest::ChCredentialNotValid.new('The Clearing House credential have expired or not valid ' +
                                                                'yet. Check dates')
       end
+      accepted_cred_types = ['slice', 'user']
+      unless accepted_cred_types.include?(credential.type)
+        raise OMF::SFA::AM::Rest::ChCredentialNotValid.new("The credential type '#{credential.type}' is not accepted " +
+                                                               "to do broker rest requests, please enter with a " +
+                                                               "slice or user credential")
+      end
 
       # Option method don't require any authorization
       if method == 'OPTIONS'
@@ -73,7 +79,7 @@ module OMF::SFA::AM::Rest::FibreAuth
         return [status, headers, body]
       end
 
-      req.session[:authorizer] = OMF::SFA::AM::Rest::FibreAuth::AMAuthorizer.create_for_test_request(
+      req.session[:authorizer] = OMF::SFA::AM::Rest::FibreAuth::AMAuthorizer.create_for_rest_request(
           credential,
           @opts[:am_manager]
       )
