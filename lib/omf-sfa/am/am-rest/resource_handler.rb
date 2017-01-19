@@ -234,11 +234,11 @@ module OMF::SFA::AM::Rest
       when "openflow"
         type = "OpenflowSwitch"
       else
-        type = resource_uri.singularize.camelize
+        type = if resource_uri.empty? then "unknown" else resource_uri.singularize.camelize end
         begin
           eval("OMF::SFA::Model::#{type}").class
-        rescue NameError => ex
-          raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource type '#{resource_uri}'."
+        rescue
+          raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource type '#{resource_uri}'"
         end
       end
       [type, params]
@@ -336,7 +336,11 @@ module OMF::SFA::AM::Rest
             end
           end
         elsif resource_descr.kind_of? Hash
-          resource = eval("OMF::SFA::Model::#{type_to_create}").create(resource_descr)
+          begin
+            resource = eval("OMF::SFA::Model::#{type_to_create}").create(resource_descr)
+          rescue => ex
+            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is invalid: #{ex.to_s}"
+          end
           @am_manager.manage_resource(resource) if resource.class.can_be_managed?
           if type_to_create == 'Account'
             @am_manager.liaison.create_account(resource)
