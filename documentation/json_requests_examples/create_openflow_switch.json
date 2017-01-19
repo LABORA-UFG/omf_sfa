@@ -1,0 +1,28 @@
+{
+  "name": "pronto",
+  "urn": "urn:publicid:IDN+ufg.br+openflow_switch+1",
+  "of_controller_ip_attributes": {
+    "address": "10.0.0.5",
+    "netmask": "255.255.0.0",
+    "ip_type": "ipv4"
+  },
+  "interfaces_attributes": [
+    {
+      "name": "icarus5:if0",
+      "role": "control",
+      "mac": "00:03:1d:0c:23:46",
+      "ips_attributes": [
+        {
+          "address": "10.0.0.5",
+          "netmask": "255.255.0.0",
+          "ip_type": "ipv4"
+        }
+      ]
+    },
+    {
+      "name": "icarus5:if1",
+      "role": "experimental",
+      "mac": "00:03:1d:0c:23:47"
+    }
+  ]
+}
