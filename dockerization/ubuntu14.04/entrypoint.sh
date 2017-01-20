@@ -2,7 +2,7 @@
 
 #sqlite3 is one of the gems installed for Broker. Here we check if it is already installed.
 #We assume that if it is not installed it means that the Broker are not installed too.
-if [ ! -f "$INVENTORY_PATH" ]; then
+if ! $(gem list -i sqlite3); then
     echo "###############INSTALLATION OF THE MODULES###############"
     #Start of Broker installation
     cd $OMF_SFA_HOME
