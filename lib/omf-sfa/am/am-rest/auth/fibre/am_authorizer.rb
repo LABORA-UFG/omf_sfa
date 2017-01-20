@@ -174,7 +174,7 @@ module OMF::SFA::AM::Rest::FibreAuth
       privileges = {
           # RESOURCE
           can_create_resource?:  (is_user_cred && (all_privileges || credential.privilege?('refresh'))),
-          can_modify_resource?:  (is_user_cred && (all_privileges || credential.privilege?('control'))),
+          can_modify_resource?:  (is_user_cred && (all_privileges || credential.privilege?('refresh'))),
           can_view_resource?:    (is_user_cred && (all_privileges || credential.privilege?('info'))),
           can_release_resource?: (is_user_cred && (all_privileges || credential.privilege?('refresh'))),
           # SLICE
