@@ -1,8 +1,8 @@
-require 'omf-sfa/models/resource'
+require 'omf-sfa/models/component'
 require 'omf-sfa/models/disk_image'
 
 module OMF::SFA::Model
-  class SliverType < Resource
+  class SliverType < Component
 
     many_to_one :disk_image
     one_to_many :nodes

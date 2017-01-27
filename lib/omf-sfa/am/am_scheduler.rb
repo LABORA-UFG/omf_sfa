@@ -26,7 +26,7 @@ module OMF::SFA::AM
     # @param [String] The type of the resource we want to create
     # @return [Resource] Returns the created resource
     #
-    def create_child_resource(resource_descr, type_to_create)
+    def create_child_resource(resource_descr, type_to_create, extra_infos)
       debug "create_child_resource: resource_descr:'#{resource_descr}' type_to_create:'#{type_to_create}'"
 
       desc = resource_descr.dup
@@ -40,15 +40,43 @@ module OMF::SFA::AM
         raise UnknownResourceException.new "Resource '#{desc.inspect}' is not available or doesn't exist"
       end
 
-      child = parent.clone 
+      child = parent.clone
 
       ac = OMF::SFA::Model::Account[resource_descr[:account_id]] #search with id
       child.account = ac
       child.status = "unknown"
+
+      if !extra_infos.nil? and extra_infos[:name] != "raw_pc"
+        sliver_type = create_sliver_type(resource_descr, extra_infos)
+        child.sliver_type = sliver_type
+      end
+
       child.save
       parent.add_child(child)
+    end
 
-      child
+    def create_sliver_type(resource_descr, extra_infos)
+      desc = {}
+      desc[:name] = extra_infos[:name]
+      desc[:uuid] = extra_infos[:uuid]
+
+      sliver_type = OMF::SFA::Model::SliverType.first(desc)
+
+      if sliver_type.nil?
+        raise UnknownResourceException.new "Resource '#{extra_infos.inspect}' is not available or doesn't exist"
+      end
+
+      child_sliver = sliver_type.clone
+
+      child_sliver[:cpu_cores] = extra_infos[:cpu_cores] unless extra_infos[:cpu_cores].nil?
+      child_sliver[:ram_in_mb] = extra_infos[:ram_in_mb] unless extra_infos[:ram_in_mb].nil?
+
+      ac = OMF::SFA::Model::Account[resource_descr[:account_id]] #search with id
+      child_sliver.account = ac
+      child_sliver.save
+      sliver_type.add_child(child_sliver)
+
+      child_sliver
     end
 
     # Find al leases if no +account+ and +status+ is given
