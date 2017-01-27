@@ -33,4 +33,6 @@ RUN /root/gcf/src/gen-certs.py
 
 EXPOSE 8000/tcp
 
+COPY rspecs /root/
+
 ENTRYPOINT ["/root/gcf/src/gcf-ch.py"]

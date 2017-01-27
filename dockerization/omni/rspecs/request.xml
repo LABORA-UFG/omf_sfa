@@ -1,0 +1,9 @@
+<rspec generated="2016-02-17T17:39:34-02:00" type="manifest" xmlns="http://www.geni.net/resources/rspec/3" xmlns:ol="http://nitlab.inf.uth.gr/schema/sfa/rspec/1" xmlns:omf="http://schema.mytestbed.net/sfa/rspec/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.geni.net/resources/rspec/3 http://www.geni.net/resources/rspec/3/manifest.xsd http://nitlab.inf.uth.gr/schema/sfa/rspec/1 http://nitlab.inf.uth.gr/schema/sfa/rspec/1/request-reservation.xsd">
+  <ol:lease client_id="lease_ab" valid_from="2019-06-18T19:00:00+03:00" valid_until="2019-06-28T18:00:00+03:00"/>
+  <node component_id="urn:publicid:IDN+ufg.br+node+icarus5" client_id="the_icarus5">
+    <ol:lease_ref id_ref="lease_ab"/>
+  </node>
+  <node component_id="urn:publicid:IDN+ufg.br+node+icarus6" client_id="the_icarus6">
+    <ol:lease_ref id_ref="lease_ab"/>
+  </node>
+</rspec>
