@@ -288,7 +288,7 @@ module OMF::SFA::AM::Rest
           desc[:name] = c[:name] unless c[:name].nil?
           desc[:urn]  = c[:urn]  unless c[:urn].nil?
           if k = OMF::SFA::Model::Resource.first(desc)
-            k[:extra_infos] = c[:extra_infos] unless c[:extra_infos].nil?
+            k[:sliver_infos] = c[:sliver_infos] unless c[:sliver_infos].nil?
             components << k
           end
         end 
@@ -296,7 +296,7 @@ module OMF::SFA::AM::Rest
         scheduler = @am_manager.get_scheduler
         comps = []
         components.each do |comp|
-          comps << c = scheduler.create_child_resource({uuid: comp.uuid, account_id: ac.id}, comp[:type].to_s.split('::').last, comp[:extra_infos])
+          comps << c = scheduler.create_child_resource({uuid: comp.uuid, account_id: ac.id}, comp[:type].to_s.split('::').last, comp[:sliver_infos])
           unless scheduler.lease_component(lease, c)
             scheduler.delete_lease(lease)
             @am_manager.release_resources(comps, authorizer)

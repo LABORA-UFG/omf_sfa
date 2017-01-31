@@ -26,7 +26,7 @@ module OMF::SFA::AM
     # @param [String] The type of the resource we want to create
     # @return [Resource] Returns the created resource
     #
-    def create_child_resource(resource_descr, type_to_create, extra_infos)
+    def create_child_resource(resource_descr, type_to_create, sliver_infos)
       debug "create_child_resource: resource_descr:'#{resource_descr}' type_to_create:'#{type_to_create}'"
 
       desc = resource_descr.dup
@@ -46,9 +46,10 @@ module OMF::SFA::AM
       child.account = ac
       child.status = "unknown"
 
-      if !extra_infos.nil? and extra_infos[:name] != "raw_pc"
-        sliver_type = create_sliver_type(resource_descr, extra_infos)
+      if !sliver_infos.nil? and sliver_infos[:name] != "raw_pc"
+        sliver_type = create_sliver_type(resource_descr, sliver_infos[:sliver_type])
         child.sliver_type = sliver_type
+        child.exclusive = sliver_infos[:exclusive] unless sliver_infos[:exclusive].nil?
       end
 
       child.save
@@ -235,7 +236,10 @@ module OMF::SFA::AM
       if component_available?(component, lease.valid_from, lease.valid_until)
         time = Time.now
         lease.status = time > lease.valid_until ? "past" : time <= lease.valid_until && time >= lease.valid_from ? "active" : "accepted" 
-        parent.add_lease(lease)   
+        begin
+          parent.add_lease(lease)
+        rescue
+        end
         component.add_lease(lease)
         lease.save
         parent.save
@@ -254,7 +258,6 @@ module OMF::SFA::AM
     # @return [Boolean] true if it is available, false if it is not
     #
     def component_available?(component, start_time, end_time)
-      return component.available unless component.exclusive
       return false unless component.available
       return true if OMF::SFA::Model::Lease.all.empty?
 
@@ -262,7 +265,33 @@ module OMF::SFA::AM
 
       leases = OMF::SFA::Model::Lease.where(components: [parent], status: ['active', 'accepted']){((valid_from >= start_time) & (valid_from < end_time)) | ((valid_from <= start_time) & (valid_until > start_time))}
 
+      return sliver_available?(leases, parent, component) unless component.exclusive
+
       leases.nil? || leases.empty?
+    end
+
+    def sliver_available?(leases, parent, component)
+      allocated_cpu_cores = 0
+      allocated_ram = 0
+
+      leases.each do |l|
+        comps_leased = l.components.select {|comp| comp.urn == (component.urn) && comp.id != parent.id}
+
+        comps_leased.each do |comp_leased|
+          allocated_cpu_cores += comp_leased.sliver_type.cpu_cores
+          allocated_ram += comp_leased.sliver_type.ram_in_mb
+        end
+      end
+
+      total_cpu_cores = allocated_cpu_cores + component.sliver_type.cpu_cores
+      total_ram = allocated_ram + component.sliver_type.ram_in_mb
+
+      parent_cores = 0
+      parent.cpus.each {|cpu|
+        parent_cores += cpu.cores * cpu.threads
+      }
+
+      return total_cpu_cores <= parent_cores && total_ram <= parent.ram.to_i
     end
 
     # Resolve an unbound query.
