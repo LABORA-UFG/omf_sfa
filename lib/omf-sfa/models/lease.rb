@@ -50,7 +50,11 @@ module OMF::SFA::Model
       values[:components] = []
       self.components.each do |component|
         next if ((self.status == 'active' || self.status == 'accepted') && component.account.id == 2)
-        values[:components] << component.to_hash_brief
+        if component.respond_to?(:sliver_type) && !component.sliver_type.nil?
+          values[:components] << component.to_hash
+        else
+          values[:components] << component.to_hash_brief
+        end
       end
       values[:account] = self.account ? self.account.to_hash_brief : nil
       excluded = self.class.exclude_from_json
