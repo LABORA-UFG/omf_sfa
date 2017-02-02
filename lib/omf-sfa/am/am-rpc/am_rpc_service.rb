@@ -92,7 +92,6 @@ module OMF::SFA::AM::RPC
       else
         resources = @manager.find_all_leases(nil, ["pending", "accepted", "active"], authorizer)
         comps = @manager.find_all_components_for_account(@manager._get_nil_account, authorizer)
-        child_resources = @manager.find_all_child_components(authorizer)
         if only_available
           debug "only_available flag is true!"
           comps.delete_if {|c| !c.available_now?}
@@ -100,12 +99,6 @@ module OMF::SFA::AM::RPC
 
         resources.concat(comps) unless comps.nil? || comps.empty?
         res = @manager.sfa_response_xml(resources, type: 'advertisement')
-
-        #TODO correct this pog
-        #add nodes in xml to the rspec
-        end_node_pattern = "/node>"
-        last_node_position = res.index(end_node_pattern)
-        child_resources.each { |node| res.insert(last_node_position+end_node_pattern.length,"\n#{node}")}
       end
 
       if compressed
