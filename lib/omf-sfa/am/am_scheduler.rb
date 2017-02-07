@@ -58,8 +58,9 @@ module OMF::SFA::AM
 
     def create_sliver_type(resource_descr, extra_infos)
       desc = {}
-      desc[:name] = extra_infos[:name]
-      desc[:uuid] = extra_infos[:uuid]
+      desc[:name] = extra_infos[:name] unless extra_infos[:name].nil?
+      desc[:uuid] = extra_infos[:uuid] unless extra_infos[:uuid].nil?
+      desc[:urn] = extra_infos[:uuid] unless extra_infos[:urn].nil?
 
       sliver_type = OMF::SFA::Model::SliverType.first(desc)
 
