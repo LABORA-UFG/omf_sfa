@@ -1,0 +1,5 @@
+{
+  "name": "virtual_machine",
+  "cpu_cores": 1,
+  "ram_in_mb": 1024
+}

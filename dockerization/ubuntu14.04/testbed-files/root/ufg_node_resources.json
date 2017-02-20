@@ -1,0 +1,284 @@
+[
+  {
+    "name": "omf.ufg.node1",
+    "hostname": "node1",
+    "urn": "urn:publicid:IDN+ufg.br+node+node1",
+    "interfaces_attributes": [
+      {
+        "name": "node1:if0",
+        "role": "control",
+        "mac": "00:03:1d:0b:31:8a",
+        "ips_attributes": [
+          {
+            "address": "10.137.11.1",
+            "netmask": "255.255.0.0",
+            "ip_type": "ipv4"
+          }
+        ]
+      }
+    ],
+    "cmc_attributes": {
+      "name": "node1:cm",
+      "ip_attributes": {
+        "address": "172.16.137.1",
+        "netmask": "255.255.255.0",
+        "ip_type": "ipv4"
+      }
+    },
+    "domain": "ufg.br",
+    "gateway": "10.137.11.200"
+  },
+  {
+    "name": "omf.ufg.node2",
+    "hostname": "node2",
+    "urn": "urn:publicid:IDN+ufg.br+node+node2",
+    "interfaces_attributes": [
+      {
+        "name": "node2:if0",
+        "role": "control",
+        "mac": "00:03:1d:0b:44:f5",
+        "ips_attributes": [
+          {
+            "address": "10.137.11.2",
+            "netmask": "255.255.0.0",
+            "ip_type": "ipv4"
+          }
+        ]
+      }
+    ],
+    "cmc_attributes": {
+      "name": "node2:cm",
+      "ip_attributes": {
+        "address": "172.16.10.2",
+        "netmask": "255.255.255.0",
+        "ip_type": "ipv4"
+      }
+    },
+    "domain": "ufg.br",
+    "gateway": "10.137.11.200"
+  },
+  {
+    "name": "omf.ufg.node3",
+    "hostname": "node3",
+    "urn": "urn:publicid:IDN+ufg.br+node+node3",
+    "interfaces_attributes": [
+      {
+        "name": "node3:if0",
+        "role": "control",
+        "mac": "00:03:1d:0b:31:a4",
+        "ips_attributes": [
+          {
+            "address": "10.137.11.3",
+            "netmask": "255.255.0.0",
+            "ip_type": "ipv4"
+          }
+        ]
+      }
+    ],
+    "cmc_attributes": {
+      "name": "node3:cm",
+      "ip_attributes": {
+        "address": "172.16.137.3",
+        "netmask": "255.255.255.0",
+        "ip_type": "ipv4"
+      }
+    },
+    "domain": "ufg.br",
+    "gateway": "10.137.11.200"
+  },
+  {
+    "name": "omf.ufg.node4",
+    "hostname": "node4",
+    "urn": "urn:publicid:IDN+ufg.br+node+node4",
+    "interfaces_attributes": [
+      {
+        "name": "node4:if0",
+        "role": "control",
+        "mac": "00:03:1d:0b:44:fb",
+        "ips_attributes": [
+          {
+            "address": "10.137.11.4",
+            "netmask": "255.255.0.0",
+            "ip_type": "ipv4"
+          }
+        ]
+      }
+    ],
+    "cmc_attributes": {
+      "name": "node4:cm",
+      "ip_attributes": {
+        "address": "172.16.137.4",
+        "netmask": "255.255.255.0",
+        "ip_type": "ipv4"
+      }
+    },
+    "domain": "ufg.br",
+    "gateway": "10.137.11.200"
+  },
+  {
+    "name": "omf.ufg.node5",
+    "hostname": "node5",
+    "urn": "urn:publicid:IDN+ufg.br+node+node5",
+    "interfaces_attributes": [
+      {
+        "name": "node5:if0",
+        "role": "control",
+        "mac": "00:03:1d:0c:23:46",
+        "ips_attributes": [
+          {
+            "address": "10.137.11.5",
+            "netmask": "255.255.0.0",
+            "ip_type": "ipv4"
+          }
+        ]
+      }
+    ],
+    "cmc_attributes": {
+      "name": "node5:cm",
+      "ip_attributes": {
+        "address": "172.16.137.5",
+        "netmask": "255.255.255.0",
+        "ip_type": "ipv4"
+      }
+    },
+    "domain": "ufg.br",
+    "gateway": "10.137.11.200"
+  },
+  {
+    "name": "omf.ufg.node6",
+    "hostname": "node6",
+    "urn": "urn:publicid:IDN+ufg.br+node+node6",
+    "interfaces_attributes": [
+      {
+        "name": "node6:if0",
+        "role": "control",
+        "mac": "00:03:1d:0c:47:48",
+        "ips_attributes": [
+          {
+            "address": "10.137.11.6",
+            "netmask": "255.255.0.0",
+            "ip_type": "ipv4"
+          }
+        ]
+      }
+    ],
+    "cmc_attributes": {
+      "name": "node6:cm",
+      "ip_attributes": {
+        "address": "172.16.137.6",
+        "netmask": "255.255.255.0",
+        "ip_type": "ipv4"
+      }
+    },
+    "domain": "ufg.br",
+    "gateway": "10.137.11.200"
+  },
+  {
+    "name": "omf.ufg.node7",
+    "hostname": "node7",
+    "urn": "urn:publicid:IDN+ufg.br+node+node7",
+    "interfaces_attributes": [
+      {
+        "name": "node7:if0",
+        "role": "control",
+        "mac": "00:03:1d:0b:31:8c",
+        "ips_attributes": [
+          {
+            "address": "10.137.11.7",
+            "netmask": "255.255.0.0",
+            "ip_type": "ipv4"
+          }
+        ]
+      }
+    ],
+    "cmc_attributes": {
+      "name": "node7:cm",
+      "ip_attributes": {
+        "address": "172.16.10.7",
+        "netmask": "255.255.255.0",
+        "ip_type": "ipv4"
+      }
+    },
+    "domain": "ufg.br",
+    "gateway": "10.137.11.200"
+  },
+  {
+    "name": "omf.ufg.node8",
+    "hostname": "node8",
+    "urn": "urn:publicid:IDN+ufg.br+node+node8",
+    "interfaces_attributes": [
+      {
+        "name": "node8:if0",
+        "role": "control",
+        "mac": "00:03:1d:0b:31:6c",
+        "ips_attributes": [
+          {
+            "address": "10.137.11.8",
+            "netmask": "255.255.0.0",
+            "ip_type": "ipv4"
+          }
+        ]
+      }
+    ],
+    "cmc_attributes": {
+      "name": "node8:cm",
+      "ip_attributes": {
+        "address": "172.16.137.8",
+        "netmask": "255.255.255.0",
+        "ip_type": "ipv4"
+      }
+    },
+    "domain": "ufg.br",
+    "gateway": "10.137.11.200"
+  },
+  {
+    "name": "omf.ufg.node9",
+    "hostname": "node9",
+    "urn": "urn:publicid:IDN+ufg.br+node+node9",
+    "interfaces_attributes": [
+      {
+        "name": "node9:if0",
+        "role": "control",
+        "mac": "00:03:1d:0b:31:7a",
+        "ips_attributes": [
+          {
+            "address": "10.137.11.9",
+            "netmask": "255.255.0.0",
+            "ip_type": "ipv4"
+          }
+        ]
+      }
+    ],
+    "cmc_attributes": {
+      "name": "node9:cm",
+      "ip_attributes": {
+        "address": "172.16.137.9",
+        "netmask": "255.255.255.0",
+        "ip_type": "ipv4"
+      }
+    },
+    "domain": "ufg.br",
+    "gateway": "10.137.11.200"
+  },
+  {
+    "name": "xen",
+    "hostname": "xen",
+    "urn": "urn:publicid:IDN+ufg.br+node+xen",
+    "domain": "ufg.br",
+    "gateway": "pubsub",
+    "exclusive": false,
+    "ram": "32768",
+    "ram_type": "ddr3",
+    "cpus_attributes": [
+      {
+        "name": "cpui7",
+        "urn": "urn:publicid:IDN+ufg.br+cpu+cpui7",
+        "cpu_type": "i7",
+        "cores": 16,
+        "threads": 8,
+        "cache_l1": "1",
+        "cache_l2": "3"
+      }
+    ]
+  }
+]

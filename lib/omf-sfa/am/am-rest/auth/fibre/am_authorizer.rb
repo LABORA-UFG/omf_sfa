@@ -68,15 +68,25 @@ module OMF::SFA::AM::Rest::FibreAuth
 
     def can_view_resource?(resource)
       type = resource.resource_type.downcase
-      debug "Check permission 'can_view_resource??' (#{@permissions[:can_view_resource?]})"
+      debug "Check permission 'can_view_resource?' (#{@permissions[:can_view_resource?]})"
 
       especial_types = ['lease', 'account']
-      if (type == 'lease' && @permissions[:can_view_lease?]) ||
-          (type == 'account' && can_view_account?(resource)) ||
+      if (type == 'lease' && can_view_lease?(resource)) || (type == 'account' && can_view_account?(resource)) ||
           (especial_types.include?(type) == false && @permissions[:can_view_resource?])
         return true
       end
       raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to view this resource')
+    end
+
+    def can_release_resource?(resource)
+      is_slice_cred = @credential.type.eql?('slice')
+      is_user_cred = @credential.type.eql?('user')
+      can_release_resource = (@permissions[:can_release_resource?] &&
+          (is_user_cred || (is_slice_cred  && resource.account == @account)))
+
+      debug "Check permission 'can_release_resource?' (#{can_release_resource}, #{resource.urn})"
+      return true if can_release_resource
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to release this resource')
     end
 
     ##### ACCOUNT
@@ -84,7 +94,7 @@ module OMF::SFA::AM::Rest::FibreAuth
     def can_view_account?(account)
       debug "Check permission 'can_view_account?' (#{account.urn == @account_urn}, #{@permissions[:can_view_account?]})"
 
-      return true if (account.urn == @account_urn && @permissions[:can_view_account?])
+      return true if (((account.urn == @account_urn) || account.nil?) && @permissions[:can_view_account?])
       raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to view this account')
     end
 
@@ -105,6 +115,17 @@ module OMF::SFA::AM::Rest::FibreAuth
     end
 
     ##### LEASE
+
+    def can_view_lease?(lease)
+      is_slice_cred = @credential.type.eql?('slice')
+      is_user_cred = @credential.type.eql?('user')
+      can_view_lease = (@permissions[:can_view_lease?] &&
+          (is_user_cred || (is_slice_cred  && lease.account == @account)))
+
+      debug "Check permission 'can_view_lease?' (#{can_view_lease}, #{lease.urn})"
+      return true if can_view_lease
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to view this lease')
+    end
 
     def can_modify_lease?(lease)
       debug "Check permission 'can_modify_lease?' (#{@account == lease.account}, #{@permissions[:can_modify_lease?]})"
@@ -176,7 +197,7 @@ module OMF::SFA::AM::Rest::FibreAuth
           can_create_resource?:  (is_user_cred && (all_privileges || credential.privilege?('refresh'))),
           can_modify_resource?:  (is_user_cred && (all_privileges || credential.privilege?('refresh'))),
           can_view_resource?:    (is_user_cred && (all_privileges || credential.privilege?('info'))),
-          can_release_resource?: (is_user_cred && (all_privileges || credential.privilege?('refresh'))),
+          can_release_resource?: (all_privileges || credential.privilege?('refresh')),
           # SLICE
           can_create_account?:   (is_slice_cred && (all_privileges || credential.privilege?('control'))),
           can_view_account?:     (is_slice_cred && (all_privileges || credential.privilege?('info'))),
@@ -184,7 +205,7 @@ module OMF::SFA::AM::Rest::FibreAuth
           can_close_account?:    (is_slice_cred && (all_privileges || credential.privilege?('control'))),
           # LEASE
           can_create_lease?:     (is_slice_cred && (all_privileges || credential.privilege?('control'))),
-          can_view_lease?:       (is_slice_cred && (all_privileges || credential.privilege?('info'))),
+          can_view_lease?:       (all_privileges || credential.privilege?('info')),
           can_modify_lease?:     (is_slice_cred && (all_privileges || credential.privilege?('refresh'))),
           can_release_lease?:    (is_slice_cred && (all_privileges || credential.privilege?('refresh'))),
       }
