@@ -8,6 +8,7 @@ services:
         links:
             - pubsub
             - gcf-omni
+            - ec
         ports:
             - "8001:8001"
             - "1234:1234"
@@ -46,3 +47,12 @@ services:
         ports:
             - 8000:8000
         entrypoint: /root/gcf/src/gcf-ch.py
+
+    ec:
+        build: ../ec
+        image: ec
+        container_name: ec
+        hostname: ec
+        ports:
+            - 8000:8000
+        entrypoint: /usr/bin/entrypoint.sh
