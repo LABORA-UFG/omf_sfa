@@ -7,10 +7,9 @@ module OMF::SFA::Model
   class OpenflowSwitch < Component
     many_to_one :of_controller_ip, class: Ip
     one_to_many :interfaces
-    one_to_many :vlans, class: Vlan
 
     plugin :nested_attributes
-    nested_attributes :of_controller_ip, :interfaces, :vlans
+    nested_attributes :of_controller_ip, :interfaces
 
     sfa_class 'openflow_switch', :can_be_referred => true, :expose_id => false
 

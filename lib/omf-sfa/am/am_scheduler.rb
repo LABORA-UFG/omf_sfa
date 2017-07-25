@@ -238,7 +238,7 @@ module OMF::SFA::AM
         time = Time.now
         lease.status = time > lease.valid_until ? "past" : time <= lease.valid_until && time >= lease.valid_from ? "active" : "accepted" 
         begin
-          parent.add_lease(lease)
+          parent.add_lease(lease) # in case child is a sliver
         rescue
         end
         component.add_lease(lease)

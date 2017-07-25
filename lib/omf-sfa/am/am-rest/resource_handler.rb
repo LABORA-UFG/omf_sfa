@@ -48,7 +48,7 @@ module OMF::SFA::AM::Rest
           acc_desc[:urn] = resource_params.delete(:account_urn) if resource_params[:account_urn]
           acc_desc[:uuid] = resource_params.delete(:account_uuid) if resource_params[:account_uuid]
           account = @am_manager.find_account(acc_desc, authenticator) unless acc_desc.empty?
-          
+
           resource =  @am_manager.find_all_leases(account, status_types, authenticator)
           return show_resource(resource, opts)
         end
@@ -268,7 +268,7 @@ module OMF::SFA::AM::Rest
         ac_desc = resource_descr[:account] || resource_descr[:account_attributes]
         ac = OMF::SFA::Model::Account.first(ac_desc)
         # ac = @am_manager.find_or_create_account(ac_desc, authorizer)
-        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Account with description '#{ac_desc}' does not exist." if ac.nil? 
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Account with description '#{ac_desc}' does not exist." if ac.nil?
         raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Account with description '#{ac_desc}' is closed." unless ac.active?
         if ac.kind_of? OMF::SFA::Model::Account
           res_descr[:account_id] = ac.id
@@ -280,18 +280,28 @@ module OMF::SFA::AM::Rest
 
         comps = resource_descr[:components] || resource_descr[:components_attributes]
         nil_account_id = @am_manager._get_nil_account.id
+
+        not_founded_components = []
         components = []
         comps.each do |c|
           desc = {}
           desc[:account_id] = nil_account_id
           desc[:uuid] = c[:uuid] unless c[:uuid].nil?
           desc[:name] = c[:name] unless c[:name].nil?
-          desc[:urn]  = c[:urn]  unless c[:urn].nil?
+          desc[:urn] = c[:urn] unless c[:urn].nil?
+          not_founded_components.push(c[:uuid])
+
           if k = OMF::SFA::Model::Resource.first(desc)
             k[:sliver_infos] = c[:sliver_infos] unless c[:sliver_infos].nil?
             components << k
+            not_founded_components.delete(c[:uuid])
           end
-        end 
+        end
+
+        unless not_founded_components.empty?
+          raise UnknownResourceException.new "You are trying to reserve unknown resources." \
+                            "Resources with the following uuids were not found: #{not_founded_components.to_s.gsub('"', '')}"
+        end
 
         scheduler = @am_manager.get_scheduler
         comps = []
@@ -318,8 +328,8 @@ module OMF::SFA::AM::Rest
           descr = {}
           descr.merge!({uuid: resource_descr[:uuid]}) if resource_descr.has_key?(:uuid)
           descr.merge!({name: resource_descr[:name]}) if resource_descr.has_key?(:name)
-          descr.merge!({urn:  resource_descr[:urn]})  if resource_descr.has_key?(:urn)
-        
+          descr.merge!({urn: resource_descr[:urn]}) if resource_descr.has_key?(:urn)
+
           if descr.empty?
             raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is '#{resource_descr}'."
           else

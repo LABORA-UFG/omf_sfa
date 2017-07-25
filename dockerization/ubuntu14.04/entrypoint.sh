@@ -81,8 +81,12 @@ debug_broker() {
 echo "Executing omf_sfa"
 export $(< $OMF_SFA_HOME/dockerization/ubuntu14.04/broker.env)
 if [ "$DEBUG" == 1 ]; then
+    echo "DEBUGING - Executing omf_sfa"
+    echo "IPs:"
+    ifconfig | perl -nle 's/dr:(\S+)/print $1/e'
     debug_broker;
 else
+    echo "RUNNING - Executing omf_sfa"
     run_broker;
 fi
 
