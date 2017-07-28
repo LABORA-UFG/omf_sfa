@@ -1,7 +1,6 @@
 require 'omf-sfa/models/component'
 require 'omf-sfa/models/interface'
 require 'omf-sfa/models/ip'
-require 'omf-sfa/models/vlan'
 
 module OMF::SFA::Model
   class OpenflowSwitch < Component
