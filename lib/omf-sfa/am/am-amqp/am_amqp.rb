@@ -51,6 +51,7 @@ module OmfRc::ResourceProxy::AMController
 
   configure :resource do |resource, value|
     puts "CONFIGURE #{value}"
+    "success"
   end
 
 
@@ -160,6 +161,7 @@ module OMF::SFA::AM::AMQP
           OmfCommon::Auth::CertificateStore.instance.register_default_certs(trusted_roots)
 
           OmfRc::ResourceFactory.create(:am_controller, {uid: 'am_controller', certificate: @cert}, {manager: @manager, authorizer: @authorizer})
+
           puts "AM Resource Controller ready."
         end
       end

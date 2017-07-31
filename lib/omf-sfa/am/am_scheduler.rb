@@ -72,6 +72,7 @@ module OMF::SFA::AM
 
       child_sliver[:cpu_cores] = extra_infos[:cpu_cores] unless extra_infos[:cpu_cores].nil?
       child_sliver[:ram_in_mb] = extra_infos[:ram_in_mb] unless extra_infos[:ram_in_mb].nil?
+      child_sliver[:status] = 'DOWN'
 
       ac = OMF::SFA::Model::Account[resource_descr[:account_id]] #search with id
       child_sliver.account = ac

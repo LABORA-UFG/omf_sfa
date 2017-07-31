@@ -261,7 +261,7 @@
     "gateway": "10.137.11.200"
   },
   {
-    "name": "xen",
+    "name": "omf.ufg.xen",
     "hostname": "xen",
     "urn": "urn:publicid:IDN+ufg.br+node+xen",
     "domain": "ufg.br",
