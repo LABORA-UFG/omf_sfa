@@ -13,10 +13,14 @@ module OMF::SFA::AM::Rest
     # @param [Hash] options of the request
     # @return [String] Description of the requested resource.
     def on_get(resource_uri, opts)
-      debug "on_get: #{resource_uri}"
-      source_type, source_uuid, target_type, params = parse_uri(resource_uri, opts)
-      desc = {}
-      desc[:uuid] = source_uuid
+      info "on_get: #{resource_uri}"
+      source_type, source_id, target_type, params = parse_uri(resource_uri, opts)
+      desc = {
+          :or => {
+              :uuid => source_id,
+              :urn => source_id
+          }
+      }
       authorizer = opts[:req].session[:authorizer]
       source_resource = @am_manager.find_resource(desc, source_type, authorizer)
       # target_type = target_type.downcase.pluralize
@@ -45,12 +49,18 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the updated resource.
     def on_put(resource_uri, opts)
       debug "on_put: #{resource_uri}"
-      source_type, source_uuid, target_type, params = parse_uri(resource_uri, opts)
-      desc = {}
-      desc[:uuid] = source_uuid
+      source_type, source_id, target_type, params = parse_uri(resource_uri, opts)
+      desc = {
+          :or => {
+              :uuid => source_id,
+              :urn => source_id
+          }
+      }
+
       authorizer = opts[:req].session[:authorizer]
       source_resource = @am_manager.find_resource(desc, source_type, authorizer)
-      raise InsufficientPrivilegesException unless authorizer.can_modify_resource?(source_resource, source_type)
+
+      raise OMF::SFA::AM::InsufficientPrivilegesException unless authorizer.can_modify_resource?(source_resource, source_type)
 
       if params['special_method']
         begin
@@ -62,23 +72,9 @@ module OMF::SFA::AM::Rest
       end
 
       body, format = parse_body(opts)
-
-      target_resources = []
-      if body.kind_of? Array
-        body.each do |r|
-          desc = {}
-          desc[:uuid] = r[:uuid]
-          raise OMF::SFA::AM::Rest::BadRequestException.new "uuid in body is mandatory." if desc[:uuid].nil?
-          target_resources << @am_manager.find_resource(desc, target_type.singularize.camelize, authorizer)
-        end
-      else
-        desc = {}
-        desc[:uuid] = body[:uuid]
-        raise OMF::SFA::AM::Rest::BadRequestException.new "uuid in body is mandatory." if desc[:uuid].nil?
-        target_resources << @am_manager.find_resource(desc, target_type.singularize.camelize, authorizer)
-      end
+      target_resources = self.get_target_resources_from_body(body, target_type, authorizer)
       
-      # in those casses we need to use the manager and not the relation between them
+      # in those cases we need to use the manager and not the relation between them
       if source_type == 'Lease' && (target_type == 'nodes' || target_type == "channels" || target_type == "e_node_bs" || target_type == "wimax_base_stations") 
         scheduler = @am_manager.get_scheduler
         ac_id = source_resource.account.id
@@ -114,12 +110,16 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the created resource.
     def on_delete(resource_uri, opts)
       debug "on_delete: #{resource_uri}"
-      source_type, source_uuid, target_type, params = parse_uri(resource_uri, opts)
-      desc = {}
-      desc[:uuid] = source_uuid
+      source_type, source_id, target_type, params = parse_uri(resource_uri, opts)
+      desc = {
+          :or => {
+              :uuid => source_id,
+              :urn => source_id
+          }
+      }
       authorizer = opts[:req].session[:authorizer]
       source_resource = @am_manager.find_resource(desc, source_type, authorizer)
-      raise InsufficientPrivilegesException unless authorizer.can_modify_resource?(source_resource, source_type)
+      raise OMF::SFA::AM::InsufficientPrivilegesException unless authorizer.can_modify_resource?(source_resource, source_type)
 
       if params['special_method']
         begin
@@ -131,23 +131,9 @@ module OMF::SFA::AM::Rest
       end
 
       body, format = parse_body(opts)
+      target_resources = self.get_target_resources_from_body(body, target_type, authorizer)
 
-      target_resources = []
-      if body.kind_of? Array
-        body.each do |r|
-          desc = {}
-          desc[:uuid] = r[:uuid]
-          raise OMF::SFA::AM::Rest::BadRequestException.new "uuid in body is mandatory." if desc[:uuid].nil?
-          target_resources << @am_manager.find_resource(desc, target_type.singularize.camelize, authorizer)
-        end
-      else
-        desc = {}
-        desc[:uuid] = body[:uuid]
-        raise OMF::SFA::AM::Rest::BadRequestException.new "uuid in body is mandatory." if desc[:uuid].nil?
-        target_resources << @am_manager.find_resource(desc, target_type.singularize.camelize, authorizer)
-      end
-
-       # in this casses we need to use the manager and not the relation between them
+       # in this cases we need to use the manager and not the relation between them
       if source_type == 'Lease' && (target_type == 'components' || target_type == 'nodes' || target_type == "channels" || target_type == "e_node_bs" || target_type == "wimax_base_stations") 
         scheduler = @am_manager.get_scheduler
         lease = source_resource
@@ -200,7 +186,35 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the created resource.
     def on_post(resource_uri, opts)
       debug "on_post: #{resource_uri}"
-      raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL."
+      source_type, source_id, target_type, params = parse_uri(resource_uri, opts)
+      desc = {
+          :or => {
+              :uuid => source_id,
+              :urn => source_id
+          }
+      }
+      authorizer = opts[:req].session[:authorizer]
+      source_resource = @am_manager.find_resource(desc, source_type, authorizer)
+
+      single_resource_handler = OMF::SFA::AM::Rest::ResourceHandler.new(@am_manager, @opts)
+      body, format = parse_body(opts)
+
+      target_resource = single_resource_handler.create_new_resource(body, target_type.singularize.camelize, authorizer)
+
+      if source_resource.class.method_defined?("add_#{target_type.singularize}")
+        raise OMF::SFA::AM::Rest::BadRequestException.new "resources are already associated." if source_resource.send(target_type).include?(target_resource)
+        source_resource.send("add_#{target_type.singularize}", target_resource)
+      elsif source_resource.class.method_defined?("#{target_type.singularize}=")
+        source_resource.send("#{target_type.singularize}=", target_resource)
+      else
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL."
+      end
+
+      if @special_cases.include?([source_type.pluralize.downcase, target_type.pluralize.downcase])
+        self.send("add_#{target_type.pluralize.downcase}_to_#{source_type.pluralize.downcase}", [target_resource], source_resource)
+      end
+      source_resource.save
+      show_resource(source_resource, opts)
     end
 
     protected
@@ -235,6 +249,38 @@ module OMF::SFA::AM::Rest
       opts[:target_resource_uri] = target_type
       
       [source_type, source_uuid, target_type, params]
+    end
+
+    protected
+    def get_target_resources_from_body(body, target_type, authorizer)
+      target_resources = []
+      if body.kind_of? Array
+        body.each do |r|
+          desc = {:or => {}}
+          if r[:uuid]
+            desc[:or][:uuid] = r[:uuid]
+          end
+          if r[:urn]
+            desc[:or][:urn] = r[:urn]
+          end
+          raise OMF::SFA::AM::Rest::BadRequestException.new "You need to inform URN or UUID of target resource in " +
+                                                                "body." if (r[:uuid].nil? && r[:urn].nil?)
+          target_resources << @am_manager.find_resource(desc, target_type.singularize.camelize, authorizer)
+        end
+      else
+        desc = {:or => {}}
+        if body[:uuid]
+          desc[:or][:uuid] = body[:uuid]
+        end
+        if body[:urn]
+          desc[:or][:urn] = body[:urn]
+        end
+        raise OMF::SFA::AM::Rest::BadRequestException.new "You need to inform URN or UUID of target resource in " +
+                                                              "body." if (body[:uuid].nil? && body[:urn].nil?)
+        target_resources << @am_manager.find_resource(desc, target_type.singularize.camelize, authorizer)
+      end
+
+      target_resources
     end
 
     #######################################################################
@@ -273,7 +319,7 @@ module OMF::SFA::AM::Rest
     # related users' ssh_keys), because the key was just deleted it will prcticly delete 
     # the key from the slice.
     def delete_keys_from_users(key, user)
-      debug "add_keys_to_users: #{key.inspect} - #{user.inspect}"
+      debug "delete_keys_from_users: #{key.inspect} - #{user.inspect}"
       user.accounts.each do |ac|
         keys = []
         ac.users.each do |u|

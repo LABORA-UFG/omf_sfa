@@ -39,7 +39,7 @@ module OMF::SFA::AM::Rest
     # @param [Hash] options of the request
     # @return [String] Description of the updated resource.
     def on_put(resource_uri, opts)
-      debug "on_put: #{resource_uri}"
+      info "on_put: #{resource_uri}"
       raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL."
     end
 

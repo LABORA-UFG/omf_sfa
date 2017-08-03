@@ -15,6 +15,7 @@ module OMF::SFA::Model
     def self.include_nested_attributes_to_json
       sup = super
       [:accounts].concat(sup)
+      [:keys].concat(sup)
     end
 
     def add_key(key)

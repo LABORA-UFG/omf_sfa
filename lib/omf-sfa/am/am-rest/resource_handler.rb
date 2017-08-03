@@ -15,14 +15,20 @@ module OMF::SFA::AM::Rest
     def find_handler(path, opts)
       #opts[:account] = @am_manager.get_default_account
       opts[:resource_uri] = path.join('/')
+
       if path.size == 0 || path.size == 1
+        debug "find_handler: path: '#{path}'"
+        return self
+      elsif path.size == 2 && opts[:req].request_method == 'GET' #/resources/type1/UUID-OR-URN
+        opts[:source_resource_uri] = path[0]
+        opts[:source_resource_uuid] = path[1]
         debug "find_handler: path: '#{path}'"
         return self
       elsif path.size == 3 #/resources/type1/UUID/type2
         opts[:source_resource_uri] = path[0]
         opts[:source_resource_uuid] = path[1]
         opts[:target_resource_uri] = path[2]
-        raise OMF::SFA::AM::Rest::BadRequestException.new "'#{opts[:source_resource_uuid]}' is not a valid UUID." unless UUID.validate(opts[:source_resource_uuid])
+        # raise OMF::SFA::AM::Rest::BadRequestException.new "'#{opts[:source_resource_uuid]}' is not a valid UUID." unless UUID.validate(opts[:source_resource_uuid])
         require 'omf-sfa/am/am-rest/resource_association_handler'
         return OMF::SFA::AM::Rest::ResourceAssociationHandler.new(@am_manager, opts)
       else
@@ -38,6 +44,31 @@ module OMF::SFA::AM::Rest
     def on_get(resource_uri, opts)
       debug "on_get: #{resource_uri}"
       authenticator = opts[:req].session[:authorizer]
+
+      # Request of a single resource like path '/resources/type1/UUID-OR-URN'
+      if opts[:source_resource_uri] && opts[:source_resource_uuid]
+        debug "Requesting a single resource"
+        resource_type = opts[:source_resource_uri].singularize.camelize
+
+        # Test if resource type exists
+        begin
+          eval("OMF::SFA::Model::#{resource_type}").class
+        rescue NameError => ex
+          raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource type '#{resource_type}'."
+        end
+
+        desc = {
+            :or => {
+                :uuid => opts[:source_resource_uuid],
+                :urn => opts[:source_resource_uuid]
+            }
+        }
+
+        resource = @am_manager.find_resource(desc, resource_type, authenticator)
+        raise OMF::SFA::AM::Rest::UnknownResourceException, "No resources matching the request." if (resource.nil?)
+        return show_resource(resource, opts)
+      end
+
       unless resource_uri.empty?
         resource_type, resource_params = parse_uri(resource_uri, opts)
         if resource_uri == 'leases'
@@ -253,7 +284,7 @@ module OMF::SFA::AM::Rest
     # @raise [UnknownResourceException] if no resource can be created
     #
     def create_new_resource(resource_descr, type_to_create, authorizer)
-      debug "create_new_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
+      info "create_new_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
       authorizer.can_create_resource?(resource_descr, type_to_create)
 
       if type_to_create == "Lease" #Lease is a unigue case, needs special treatment
@@ -373,24 +404,29 @@ module OMF::SFA::AM::Rest
       descr = {}
       descr.merge!({uuid: resource_descr[:uuid]}) if resource_descr.has_key?(:uuid)
       descr.merge!({name: resource_descr[:name]}) if descr[:uuid].nil? && resource_descr.has_key?(:name)
-      unless descr.empty?
-        if type_to_create == 'Lease' && (resource_descr[:valid_until] || resource_descr[:valid_from])
-          resource = eval("OMF::SFA::Model::#{type_to_create}").first(descr)
-          raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource with descr'#{resource_descr}'." unless resource
-          desc = {}
-          desc[:valid_from] = resource_descr[:valid_from] if resource_descr[:valid_from]
-          desc[:valid_until] = resource_descr[:valid_until] if resource_descr[:valid_until]
+      descr.merge!({urn: resource_descr[:urn]}) if descr[:uuid].nil? && descr[:name].nil?  && resource_descr.has_key?(:urn)
 
-          @am_manager.get_scheduler.update_lease(resource, desc)
-        elsif resource = eval("OMF::SFA::Model::#{type_to_create}").first(descr)
-          authorizer.can_modify_resource?(resource, type_to_create)
-          resource.update(resource_descr)
-          @am_manager.get_scheduler.update_lease_events_on_event_scheduler(resource) if type_to_create == 'Lease'
-          # @am_manager.manage_resource(resource)
-        else
-          raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource with descr'#{resource_descr}'."
-        end
+      if descr.empty?
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Resource with descr'#{resource_descr}' not found."
       end
+
+      if type_to_create == 'Lease' && (resource_descr[:valid_until] || resource_descr[:valid_from])
+        resource = eval("OMF::SFA::Model::#{type_to_create}").first(descr)
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource with descr'#{resource_descr}'." unless resource
+        desc = {}
+        desc[:valid_from] = resource_descr[:valid_from] if resource_descr[:valid_from]
+        desc[:valid_until] = resource_descr[:valid_until] if resource_descr[:valid_until]
+
+        @am_manager.get_scheduler.update_lease(resource, desc)
+      elsif (resource = eval("OMF::SFA::Model::#{type_to_create}").first(descr))
+        authorizer.can_modify_resource?(resource, type_to_create)
+        resource.update(resource_descr)
+        @am_manager.get_scheduler.update_lease_events_on_event_scheduler(resource) if type_to_create == 'Lease'
+        # @am_manager.manage_resource(resource)
+      else
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource with descr'#{resource_descr}'."
+      end
+
       resource
     end
 

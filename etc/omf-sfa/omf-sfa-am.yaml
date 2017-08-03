@@ -3,7 +3,7 @@ omf_sfa_am:
   # of the resources e.g. 'urn:publicid:IDN+domain+type+name'
   domain: ufg.br
   #operation mode for OmfCommon.init (development, production, etc)
-  operationMode: development
+  operationMode: production
 
   #database info
   # postgres://user:password@localhost/my_db

@@ -364,7 +364,20 @@ module OMF::SFA::AM
       if resource_descr.kind_of? OMF::SFA::Model::Resource
         resource = resource_descr
       elsif resource_descr.kind_of? Hash
-        resource = eval("OMF::SFA::Model::#{resource_type.camelize}").first(resource_descr)
+        model = eval("OMF::SFA::Model::#{resource_type.camelize}")
+        if resource_descr[:or]
+          resource = nil
+          resource_descr[:or].keys.each do |key|
+            if resource.nil?
+              resource = model.where({key => resource_descr[:or][key]})
+            else
+              resource = resource.or({key => resource_descr[:or][key]})
+            end
+          end
+        else
+          resource = model.where(resource_descr)
+        end
+        resource = resource.first
       else
         raise FormatException.new "Unknown resource description type '#{resource_descr.class}' (#{resource_descr})"
       end
