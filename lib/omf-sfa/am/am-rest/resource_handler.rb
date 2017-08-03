@@ -222,7 +222,7 @@ module OMF::SFA::AM::Rest
 
     def resource_to_json(resource, path, opts, already_described = {})
       # debug "resource_to_json: resource: #{resource.inspect}, path: #{path}"
-      if resource.kind_of? Enumerable
+      if resource.kind_of? Enumerable and !resource.kind_of? Hash
         res = []
         resource.each do |r|
           p = path

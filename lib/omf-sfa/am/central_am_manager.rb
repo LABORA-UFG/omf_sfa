@@ -636,7 +636,42 @@ module OMF::SFA::AM
     #
     def find_all_resources_for_account(account = nil, authorizer)
       debug "central find_all_resources_for_account: #{account.inspect}"
-      []
+
+      resources = []
+      tds       = []
+      @subauthorities.each do |subauth, opts|
+        tds << Thread.new {
+          url = "#{opts[:address]}resources/"
+          if account.kind_of? Hash
+            if account[:uuid]
+              url += "?account_uuid=#{account[:uuid]}"
+            elsif account[:urn]
+              url += "?account_urn=#{account[:urn].gsub('+', '%2B')}"
+            end
+          end
+
+          uri               = URI.parse(url)
+          http              = Net::HTTP.new(uri.host, uri.port)
+          http.use_ssl      = true
+          http.read_timeout = 500
+          http.verify_mode  = OpenSSL::SSL::VERIFY_NONE
+          request           = Net::HTTP::Get.new(uri.request_uri)
+
+          begin
+            out = http.request(request)
+            o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
+            o.each do |res|
+              res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
+            end
+            resources += o
+          rescue Errno::ECONNREFUSED
+            debug "connection to #{url} refused."
+          end
+        }
+        tds.each {|td| td.join}
+      end
+
+      resources
     end
 
     # Find all components for a specific account. Return the managed components
