@@ -503,6 +503,10 @@ module OMF::SFA::AM
         tds << Thread.new {
           url = "#{opts[:address]}resources/"
           url += "#{resource_type.underscore.pluralize}/" unless resource_type.nil? || resource_type.empty?
+          if resource_descr[:or]
+            resource_descr = resource_descr[:or]
+            resource_descr.delete(:uuid)
+          end
           resource_descr.each do |key, value|
             if key.to_sym == :name || key.to_sym == :uuid || key.to_sym == :urn
               url[-1] = '?' if url[-1] == '/'
@@ -522,7 +526,7 @@ module OMF::SFA::AM
               next
             end
             o = JSON.parse(out.body, symbolize_names: true)
-            o = o[:resource_response][:resources].first || o[:resource_response][:resource]
+            o = o[:resource_response][:resource] || o[:resource_response][:resources].first
             o[:component_manager_id] = "urn:publicid:IDN+#{opts[:domain]}+authority+cm"
             resources = o
             # if o.kind_of? Array
@@ -581,7 +585,11 @@ module OMF::SFA::AM
             out = http.request(request)
             o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
             o.each do |res|
-              res[:component_manager_id] = "urn:publicid:IDN+#{opts[:domain]}+authority+cm"
+              if resource_type.nil?
+                res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
+              else
+                res[:component_manager_id] = "urn:publicid:IDN+#{opts[:domain]}+authority+cm"
+              end
             end
             resources += o
           rescue Errno::ECONNREFUSED
@@ -637,18 +645,14 @@ module OMF::SFA::AM
     def find_all_resources_for_account(account = nil, authorizer)
       debug "central find_all_resources_for_account: #{account.inspect}"
 
+      #TODO fix this method
+      account = _get_nil_account if account.nil?
       resources = []
       tds       = []
       @subauthorities.each do |subauth, opts|
         tds << Thread.new {
-          url = "#{opts[:address]}resources/"
-          if account.kind_of? Hash
-            if account[:uuid]
-              url += "?account_uuid=#{account[:uuid]}"
-            elsif account[:urn]
-              url += "?account_urn=#{account[:urn].gsub('+', '%2B')}"
-            end
-          end
+          url = "#{opts[:address]}resources/accounts/"
+          url += "#{account.urn}/resources"
 
           uri               = URI.parse(url)
           http              = Net::HTTP.new(uri.host, uri.port)
