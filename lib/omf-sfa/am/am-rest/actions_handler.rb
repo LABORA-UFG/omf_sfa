@@ -52,7 +52,7 @@ module OMF::SFA::AM::Rest
     # @param [Hash] options of the request
     # @return [String] Description of the updated resource.
     def on_put(resource_uri, opts)
-      info  "on_put: #{resource_uri}"
+      debug  "on_put: #{resource_uri}"
       action, params = parse_uri(resource_uri, opts)
       action = 'reset' if action == 'reboot' || action == "restart" 
       body, format = parse_body(opts)

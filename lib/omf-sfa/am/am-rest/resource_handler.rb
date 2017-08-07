@@ -284,7 +284,7 @@ module OMF::SFA::AM::Rest
     # @raise [UnknownResourceException] if no resource can be created
     #
     def create_new_resource(resource_descr, type_to_create, authorizer)
-      info "create_new_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
+      debug "create_new_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
       authorizer.can_create_resource?(resource_descr, type_to_create)
 
       if type_to_create == "Lease" #Lease is a unigue case, needs special treatment

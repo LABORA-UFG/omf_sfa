@@ -13,7 +13,7 @@ module OMF::SFA::AM::Rest
     # @param [Hash] options of the request
     # @return [String] Description of the requested resource.
     def on_get(resource_uri, opts)
-      info "on_get: #{resource_uri}"
+      debug "on_get: #{resource_uri}"
       source_type, source_id, target_type, params = parse_uri(resource_uri, opts)
       desc = {
           :or => {
