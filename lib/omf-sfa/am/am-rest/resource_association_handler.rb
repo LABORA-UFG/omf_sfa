@@ -22,7 +22,7 @@ module OMF::SFA::AM::Rest
           }
       }
       authorizer = opts[:req].session[:authorizer]
-      source_resource = @am_manager.find_resource(desc, source_type, authorizer)
+      source_resource, target_resources = @am_manager.find_associated_resources(desc, source_type, target_type, authorizer)
       # target_type = target_type.downcase.pluralize
 
       if params['special_method']
@@ -34,12 +34,7 @@ module OMF::SFA::AM::Rest
         return show_resource(source_resource, opts)
       end
 
-      if source_resource.class.method_defined?(target_type)
-        resource = source_resource.send(target_type)
-        return show_resource(resource, opts)
-      else
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL."
-      end
+      return show_resource(target_resources, opts)
     end
 
     # Update an existing resource

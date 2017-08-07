@@ -388,6 +388,54 @@ module OMF::SFA::AM
       resource
     end
 
+    # Find resources associated with another resource. If it doesn't exist throws +UnknownResourceException+
+    # If it's not visible to requester throws +InsufficientPrivilegesException+
+    #
+    # @param [Hash, Resource] describing properties of the requested resource
+    # @param [String] The type of resource we are trying to find
+    # @param [Authorizer] Defines context for authorization decisions
+    # @return [Resource] The resource requested
+    # @raise [UnknownResourceException] if no matching resource can be found
+    # @raise [FormatException] if the resource description is not Hash
+    # @raise [InsufficientPrivilegesException] if the resource is not visible to the requester
+    #
+    #
+    def find_associated_resources(resource_descr, resource_type, target_type, authorizer)
+      debug "find_associated_resources: descr: '#{resource_descr.inspect}'"
+      source_resource = nil
+      target_resources = nil
+      if resource_descr.kind_of? OMF::SFA::Model::Resource
+        source_resource = resource_descr
+      elsif resource_descr.kind_of? Hash
+        model = eval("OMF::SFA::Model::#{resource_type.camelize}")
+        if resource_descr[:or]
+          source_resource = nil
+          resource_descr[:or].keys.each do |key|
+            if source_resource.nil?
+              source_resource = model.where({key => resource_descr[:or][key]})
+            else
+              source_resource = source_resource.or({key => resource_descr[:or][key]})
+            end
+          end
+        else
+          source_resource = model.where(resource_descr)
+        end
+        source_resource = source_resource.first
+        if !source_resource.nil? and source_resource.class.method_defined?(target_type)
+          target_resources = source_resource.send(target_type)
+        else
+          raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL."
+        end
+      else
+        raise FormatException.new "Unknown resource description type '#{resource_descr.class}' (#{resource_descr})"
+      end
+      unless source_resource
+        raise UnknownResourceException.new "Resource '#{resource_descr.inspect}' is not available or doesn't exist"
+      end
+      raise InsufficientPrivilegesException unless authorizer.can_view_resource?(source_resource)
+      return source_resource, target_resources
+    end
+
     # Find all the resources that fit the description. If it doesn't exist throws +UnknownResourceException+
     # If it's not visible to requester throws +InsufficientPrivilegesException+
     #

@@ -547,6 +547,74 @@ module OMF::SFA::AM
       resources
     end
 
+    # Find resources associated with another resource. If it doesn't exist throws +UnknownResourceException+
+    # If it's not visible to requester throws +InsufficientPrivilegesException+
+    #
+    # @param [Hash, Resource] describing properties of the requested resource
+    # @param [String] The type of resource we are trying to find
+    # @param [Authorizer] Defines context for authorization decisions
+    # @return [Resource] The resource requested
+    # @raise [UnknownResourceException] if no matching resource can be found
+    # @raise [FormatException] if the resource description is not Hash
+    # @raise [InsufficientPrivilegesException] if the resource is not visible to the requester
+    #
+    #
+    def find_associated_resources(resource_descr, resource_type, target_type,authorizer)
+      debug "central find_associated_resources: descr: '#{resource_descr.inspect}' resource_type: #{resource_type}"
+
+      resources      = []
+      tds            = []
+      subauthorities = {}
+      if resource_descr[:component_manager_id]
+        domain = resource_descr[:component_manager_id].split('+')[1]
+        subauthorities[domain.to_sym] = @subauthorities[domain]
+        resource_descr.delete(:component_manager_id)
+      else
+        subauthorities = @subauthorities
+      end
+      subauthorities.each do |subauth, opts|
+        tds << Thread.new {
+          url = "#{opts[:address]}resources/"
+          url += "#{resource_type.underscore.pluralize}/" unless resource_type.nil? || resource_type.empty?
+
+          if resource_descr[:or]
+            resource_descr = resource_descr[:or]
+            resource_descr.delete(:uuid)
+          end
+          resource_descr.each do |key, value|
+            if key.to_sym == :name || key.to_sym == :urn
+              url += "#{value}/"
+            end
+          end
+          url += "#{target_type.underscore.pluralize}/" unless target_type.nil? || target_type.empty?
+
+          uri              = URI.parse(url)
+          http             = Net::HTTP.new(uri.host, uri.port)
+          http.use_ssl     = true
+          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+          request          = Net::HTTP::Get.new(uri.request_uri)
+
+          begin
+            out = http.request(request)
+            if out.code != '200'
+              next
+            end
+            o = JSON.parse(out.body, symbolize_names: true)
+            o = o[:resource_response][:resource] || o[:resource_response][:resources]
+            o.each do |res|
+              res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
+            end
+            resources = o
+          rescue Errno::ECONNREFUSED
+            debug "connection to #{url} refused."
+          end
+        }
+        tds.each {|td| td.join}
+      end
+
+      return nil, resources
+    end
+
     # Find all the resources that fit the description. If it doesn't exist throws +UnknownResourceException+
     # If it's not visible to requester throws +InsufficientPrivilegesException+
     #
