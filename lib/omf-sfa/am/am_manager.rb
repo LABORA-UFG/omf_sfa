@@ -1012,5 +1012,9 @@ module OMF::SFA::AM
       end
       @liaison.configure_keys(all_keys, authorizer.account)
     end
+
+    def update_resource(resource_desc, resource_type, authorizer, new_attributes)
+
+    end
   end # class
 end # OMF::SFA::AM

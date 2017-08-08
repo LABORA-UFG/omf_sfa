@@ -1429,5 +1429,10 @@ module OMF::SFA::AM
         #just ignoring for now
       end
     end
+
+    def update_resource(resource_desc, resource_type, authorizer, new_attributes)
+      raise "Not implemented yet!"
+    end
+
   end # class
 end # OMF::SFA::AM

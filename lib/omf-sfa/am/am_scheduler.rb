@@ -68,10 +68,17 @@ module OMF::SFA::AM
         raise UnknownResourceException.new "Resource '#{extra_infos.inspect}' is not available or doesn't exist"
       end
 
+      # Check if the label of resource is passed
+      raise UnknownResourceException.new "You need to inform label in the sliver info to proceed with this request." if extra_infos[:label].nil?
+      # Check if label is unique
+      sliver_resource = OMF::SFA::Model::SliverType.where({:label => extra_infos[:label]}).first
+      raise "Sliver type with label #{extra_infos[:label]} already exists." unless sliver_resource.nil?
+
       child_sliver = sliver_type.clone
 
       child_sliver[:cpu_cores] = extra_infos[:cpu_cores] unless extra_infos[:cpu_cores].nil?
       child_sliver[:ram_in_mb] = extra_infos[:ram_in_mb] unless extra_infos[:ram_in_mb].nil?
+      child_sliver[:label] = extra_infos[:label] unless extra_infos[:label].nil?
       child_sliver[:status] = 'DOWN'
 
       ac = OMF::SFA::Model::Account[resource_descr[:account_id]] #search with id

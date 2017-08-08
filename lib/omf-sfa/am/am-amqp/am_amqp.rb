@@ -52,6 +52,40 @@ module OmfRc::ResourceProxy::AMController
   configure :resource do |resource, value|
     puts "CONFIGURE #{value}"
     "success"
+
+    # OMF::SFA::Model::SliverType.where({:label => extra_infos[:label]}).first
+  end
+
+  configure :virtual_machine do |resource, value|
+    debug "Configuring virtual machine with opts #{value}"
+
+    resource_type = "sliver_type".singularize.camelize
+    # The user need to pass label or mac address of VM to find it.
+    vm_desc = {:or => {}}
+    if value[:label]
+      vm_desc[:or][:label] = value[:label]
+    end
+    if value[:mac_address]
+      vm_desc[:or][:mac_address] = value[:mac_address]
+    end
+
+    begin
+      @manager.update_resource(vm_desc, resource_type, @authorizer)
+      # vm_resource = @manager.find_resource(, )
+      @authorizer.can_modify_resource?(vm_resource, resource_type)
+    rescue OMF::SFA::AM::UnknownResourceException, OMF::SFA::AM::FormatException, OMF::SFA::AM::InsufficientPrivilegesException, Exception => error
+      error error.to_s
+      resource.inform_error(error.to_s)
+    end
+
+    if vm_resource.nil?
+      error "Virtual machine not found: #{vm_desc}"
+      resource.inform_error("Virtual machine not found: #{vm_desc}")
+      false
+    else
+      debug "resource found: #{vm_resource}"
+      vm_resource.update(resource_descr)
+    end
   end
 
 
@@ -142,7 +176,7 @@ module OMF::SFA::AM::AMQP
 
 
     def initialize(opts)
-      @manager = opts[:manager]
+      @manager = opts[:am][:manager]
       @authorizer = create_authorizer
 
       EM.next_tick do

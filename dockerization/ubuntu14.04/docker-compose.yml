@@ -48,11 +48,13 @@ services:
 #            - 8000:8000
 #        entrypoint: /root/gcf/src/gcf-ch.py
 #
-#    ec:
-#        build: ../ec
-#        image: ec
-#        container_name: ec
-#        hostname: ec
-#        ports:
-#            - 8000:8000
-#        entrypoint: /usr/bin/entrypoint.sh
+    ec:
+        build: ../ec
+        image: ec2
+        container_name: ec2
+        hostname: ec2
+        links:
+            - pubsub
+        ports:
+            - 8000:8000
+        entrypoint: /usr/bin/entrypoint.sh
