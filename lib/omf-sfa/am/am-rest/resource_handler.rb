@@ -60,7 +60,8 @@ module OMF::SFA::AM::Rest
         desc = {
             :or => {
                 :uuid => opts[:source_resource_uuid],
-                :urn => opts[:source_resource_uuid]
+                :urn => opts[:source_resource_uuid],
+                :name => opts[:source_resource_uuid]
             }
         }
 

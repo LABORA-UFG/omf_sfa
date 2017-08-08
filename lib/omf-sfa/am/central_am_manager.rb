@@ -1,4 +1,4 @@
-  
+
 require 'omf_common/lobject'
 require 'omf-sfa/am'
 require 'nokogiri'
@@ -73,9 +73,9 @@ module OMF::SFA::AM
       header         = {"Content-Type" => "application/json", "Accept" => "application/json"}
       options        = {}
       options[:name] = account_descr[:name] if account_descr
-      options[:urn]  = account_descr[:urn]  
-      pem = File.read(subauthority[:cert])     
-    
+      options[:urn]  = account_descr[:urn]
+      pem = File.read(subauthority[:cert])
+
       uri              = URI.parse(url)
       http             = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl     = true
@@ -83,7 +83,7 @@ module OMF::SFA::AM
       http.key         = OpenSSL::PKey::RSA.new(pem)
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request          = Net::HTTP::Post.new(uri.request_uri, header)
-      
+
       begin
         out = http.request(request)
         o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resource]
@@ -120,13 +120,13 @@ module OMF::SFA::AM
           url = "#{opts[:address]}resources/accounts"
           url += "?uuid=#{account_descr[:uuid]}" if account_descr[:uuid]
           url += "?urn=#{account_descr[:urn].gsub('+', '%2B')}" if account_descr[:urn]
-        
+
           uri              = URI.parse(url)
           http             = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl     = true
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           request          = Net::HTTP::Get.new(uri.request_uri)
-          
+
           begin
             out = http.request(request)
             if out.code != '200'
@@ -158,13 +158,13 @@ module OMF::SFA::AM
       @subauthorities.each do |subauth, opts|
         tds << Thread.new {
           url = "#{opts[:address]}resources/accounts"
-        
+
           uri              = URI.parse(url)
           http             = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl     = true
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           request          = Net::HTTP::Get.new(uri.request_uri)
-          
+
           begin
             out = http.request(request)
             o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
@@ -250,13 +250,13 @@ module OMF::SFA::AM
           url = "#{opts[:address]}resources/users"
           url += "?uuid=#{user_descr[:uuid]}" if user_descr[:uuid]
           url += "?urn=#{user_descr[:urn].gsub('+', '%2B')}" if user_descr[:urn]
-        
+
           uri              = URI.parse(url)
           http             = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl     = true
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           request          = Net::HTTP::Get.new(uri.request_uri)
-          
+
           begin
             out = http.request(request)
             if out.code != '200'
@@ -297,7 +297,7 @@ module OMF::SFA::AM
           if lease_descr[:uuid]
             url += "?uuid=#{lease_descr[:uuid]}"
           elsif lease_descr[:urn]
-            url += "?urn=#{lease_descr[:urn].gsub('+', '%2B')}" 
+            url += "?urn=#{lease_descr[:urn].gsub('+', '%2B')}"
           else
             raise UnavailableResourceException.new "Unknown lease '#{lease_descr.inspect}'"
           end
@@ -307,7 +307,7 @@ module OMF::SFA::AM
           http.use_ssl     = true
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           request          = Net::HTTP::Get.new(uri.request_uri)
-          
+
           begin
             out = http.request(request)
             o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
@@ -335,7 +335,7 @@ module OMF::SFA::AM
     #
     def find_or_create_lease(lease_descr, authorizer)
       debug "central find_or_create_lease: '#{lease_descr.inspect}'"
-       begin
+      begin
         return find_lease(lease_descr, authorizer)
       rescue UnavailableResourceException
       end
@@ -356,8 +356,8 @@ module OMF::SFA::AM
       options        = {}
       options[:name] = lease_descr[:name] if lease_descr[:name]
       options[:urn]  = lease_descr[:urn]  if lease_descr[:urn]
-      pem = File.read(subauthority[:cert])     
-    
+      pem = File.read(subauthority[:cert])
+
       uri              = URI.parse(url)
       http             = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl     = true
@@ -365,7 +365,7 @@ module OMF::SFA::AM
       http.key         = OpenSSL::PKey::RSA.new(pem)
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request          = Net::HTTP::Post.new(uri.request_uri, header)
-      
+
       begin
         out = http.request(request)
         o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resource]
@@ -401,13 +401,13 @@ module OMF::SFA::AM
               url += "&account_urn=#{account[:urn].gsub('+', '%2B')}"
             end
           end
-       
+
           uri              = URI.parse(url)
           http             = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl     = true
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           request          = Net::HTTP::Get.new(uri.request_uri)
-          
+
           begin
             out = http.request(request)
             o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
@@ -505,21 +505,21 @@ module OMF::SFA::AM
           url += "#{resource_type.underscore.pluralize}/" unless resource_type.nil? || resource_type.empty?
           if resource_descr[:or]
             resource_descr = resource_descr[:or]
-            resource_descr.delete(:uuid)
           end
-          resource_descr.each do |key, value|
-            if key.to_sym == :name || key.to_sym == :uuid || key.to_sym == :urn
-              url[-1] = '?' if url[-1] == '/'
-              url += "#{key}=#{value.gsub('+', '%2B')}"
-            end
+          if resource_descr[:name].start_with?("urn:publicid:IDN")
+            url += resource_descr[:name]
+          else
+            url += "urn:publicid:IDN+#{subauth}+"
+            url += "#{resource_type.underscore}+"
+            url += "#{resource_descr[:name]}"
           end
-        
+
           uri              = URI.parse(url)
           http             = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl     = true
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           request          = Net::HTTP::Get.new(uri.request_uri)
-          
+
           begin
             out = http.request(request)
             if out.code != '200'
@@ -527,16 +527,8 @@ module OMF::SFA::AM
             end
             o = JSON.parse(out.body, symbolize_names: true)
             o = o[:resource_response][:resource] || o[:resource_response][:resources].first
-            o[:component_manager_id] = "urn:publicid:IDN+#{opts[:domain]}+authority+cm"
-            resources = o
-            # if o.kind_of? Array
-            #   o.each do |res|
-            #     res[:component_manager_id] = "urn:publicid:IDN+#{opts[:domain]}+authority+cm"
-            #   end
-            # else
-            #   o[:component_manager_id] = "urn:publicid:IDN+#{opts[:domain]}+authority+cm"
-            # end
-            # resources << o
+            o[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
+            resources << o
           rescue Errno::ECONNREFUSED
             debug "connection to #{url} refused."
           end
@@ -642,13 +634,13 @@ module OMF::SFA::AM
               url += "#{key}=#{value.gsub('+', '%2B')}"
             end
           end
-        
+
           uri              = URI.parse(url)
           http             = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl     = true
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           request          = Net::HTTP::Get.new(uri.request_uri)
-          
+
           begin
             out = http.request(request)
             o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
@@ -676,7 +668,7 @@ module OMF::SFA::AM
     #
     # @param [Hash] description of components
     # @param [String] The type of components we are trying to find
-    # @param [String, Time] beggining of the timeslot 
+    # @param [String, Time] beggining of the timeslot
     # @param [String, Time] ending of the timeslot
     # @return [Array] All availlable components
     # @raise [UnknownResourceException] if no matching resource can be found
@@ -691,9 +683,9 @@ module OMF::SFA::AM
     #
     # @param [Hash] description of components
     # @param [String] The type of components we are trying to find
-    # @param [String, Time] beggining of the timeslot 
+    # @param [String, Time] beggining of the timeslot
     # @param [String, Time] ending of the timeslot
-    # @param [Array] array of component uuids that are not eligible to be returned by this function 
+    # @param [Array] array of component uuids that are not eligible to be returned by this function
     # @param [Integer] number of available components to be returned by this function
     # @return [Array] All availlable components
     # @raise [UnknownResourceException] if no matching resource can be found
@@ -720,7 +712,7 @@ module OMF::SFA::AM
       @subauthorities.each do |subauth, opts|
         tds << Thread.new {
           url = "#{opts[:address]}resources/accounts/"
-          url += "#{account.urn}/resources"
+          url += "#{account.name}/resources"
 
           uri               = URI.parse(url)
           http              = Net::HTTP.new(uri.host, uri.port)
@@ -731,7 +723,8 @@ module OMF::SFA::AM
 
           begin
             out = http.request(request)
-            o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
+            o = JSON.parse(out.body, symbolize_names: true)
+            o = o[:resource_response][:resources]
             o.each do |res|
               res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
             end
@@ -762,9 +755,9 @@ module OMF::SFA::AM
           url = "#{opts[:address]}resources/nodes"
           if account.kind_of? Hash
             if account[:uuid]
-              url += "?account_uuid=#{account[:uuid]}" 
+              url += "?account_uuid=#{account[:uuid]}"
             elsif account[:urn]
-              url += "?account_urn=#{account[:urn].gsub('+', '%2B')}" 
+              url += "?account_urn=#{account[:urn].gsub('+', '%2B')}"
             end
           end
 
@@ -774,7 +767,7 @@ module OMF::SFA::AM
           http.read_timeout = 500
           http.verify_mode  = OpenSSL::SSL::VERIFY_NONE
           request           = Net::HTTP::Get.new(uri.request_uri)
-          
+
           begin
             out = http.request(request)
             o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
@@ -804,7 +797,7 @@ module OMF::SFA::AM
     end
 
     # Find or Create a resource. If an account is given in the resource description
-    # a child resource is created. Otherwise a managed resource is created. 
+    # a child resource is created. Otherwise a managed resource is created.
     #
     # @param [Hash] Describing properties of the resource
     # @param [String] Type to create
@@ -882,7 +875,7 @@ module OMF::SFA::AM
     # @param [Authorizer] Authorization context
     #
     def release_all_components_for_account(account, authorizer)
-       debug "central release_all_components_for_account: '#{account.inspect}'"
+      debug "central release_all_components_for_account: '#{account.inspect}'"
     end
 
 
@@ -944,7 +937,7 @@ module OMF::SFA::AM
           end
         end
       end
-      
+
       leases.each do |subauthority, ls|
         account = find_account({urn: authorizer.account[:urn], component_manager_id: subauthority}, authorizer)
         if account.nil? || account.empty?
@@ -960,8 +953,8 @@ module OMF::SFA::AM
           options[:urn]  = authorizer.account[:urn]
 
           pem = File.read(subauth[:cert])
-          pkey = File.read(subauth[:key])    
-        
+          pkey = File.read(subauth[:key])
+
           uri              = URI.parse(url)
           http             = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl     = true
@@ -970,7 +963,7 @@ module OMF::SFA::AM
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           request          = Net::HTTP::Post.new(uri.request_uri, header)
           request.body     = options.to_json
-          
+
           begin
             out = http.request(request)
             o = JSON.parse(out.body, symbolize_names: true)
@@ -1075,8 +1068,8 @@ module OMF::SFA::AM
         options[:components]  = lease_el[:components]
 
         pem = File.read(subauthority[:cert])
-        pkey = File.read(subauthority[:key])    
-      
+        pkey = File.read(subauthority[:key])
+
         uri              = URI.parse(url)
         http             = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl     = true
@@ -1085,7 +1078,7 @@ module OMF::SFA::AM
         http.verify_mode = OpenSSL::SSL::VERIFY_NONE
         request          = Net::HTTP::Post.new(uri.request_uri, header)
         request.body     = options.to_json
-        
+
         begin
           out = http.request(request)
           o = JSON.parse(out.body, symbolize_names: true)
@@ -1118,23 +1111,23 @@ module OMF::SFA::AM
       end
 
       case opts[:type].downcase
-      when 'advertisement'
-        root['xsi:schemaLocation'] = "#{SFA_NAMESPACE_URI} #{SFA_NAMESPACE_URI}/ad.xsd " +
-        "#{@@sfa_namespaces[:ol]} #{@@sfa_namespaces[:ol]}/ad-reservation.xsd" + 
-        "#{@@sfa_namespaces[:flex]} #{@@sfa_namespaces[:flex]}/ad.xsd"
+        when 'advertisement'
+          root['xsi:schemaLocation'] = "#{SFA_NAMESPACE_URI} #{SFA_NAMESPACE_URI}/ad.xsd " +
+              "#{@@sfa_namespaces[:ol]} #{@@sfa_namespaces[:ol]}/ad-reservation.xsd" +
+              "#{@@sfa_namespaces[:flex]} #{@@sfa_namespaces[:flex]}/ad.xsd"
 
-        now = Time.now
-        root.set_attribute('generated', now.iso8601)
-        root.set_attribute('expires', (now + (opts[:valid_for] || 600)).iso8601)
-      when 'manifest'
-        root['xsi:schemaLocation'] = "#{SFA_NAMESPACE_URI} #{SFA_NAMESPACE_URI}/manifest.xsd " +
-        "#{@@sfa_namespaces[:ol]} #{@@sfa_namespaces[:ol]}/request-reservation.xsd" + 
-        "#{@@sfa_namespaces[:flex]} #{@@sfa_namespaces[:flex]}/ad.xsd"
+          now = Time.now
+          root.set_attribute('generated', now.iso8601)
+          root.set_attribute('expires', (now + (opts[:valid_for] || 600)).iso8601)
+        when 'manifest'
+          root['xsi:schemaLocation'] = "#{SFA_NAMESPACE_URI} #{SFA_NAMESPACE_URI}/manifest.xsd " +
+              "#{@@sfa_namespaces[:ol]} #{@@sfa_namespaces[:ol]}/request-reservation.xsd" +
+              "#{@@sfa_namespaces[:flex]} #{@@sfa_namespaces[:flex]}/ad.xsd"
 
-        now = Time.now
-        root.set_attribute('generated', now.iso8601)
-      else
-        raise "Unknown SFA response type: '#{opts[:type]}'"
+          now = Time.now
+          root.set_attribute('generated', now.iso8601)
+        else
+          raise "Unknown SFA response type: '#{opts[:type]}'"
       end
 
       _to_sfa_xml(resources, root, opts).to_xml
@@ -1158,8 +1151,8 @@ module OMF::SFA::AM
             options[:urn]         = user['urn']  if user['urn']
 
             pem = File.read(subauthority[:cert])
-            pkey = File.read(subauthority[:key])    
-          
+            pkey = File.read(subauthority[:key])
+
             uri              = URI.parse(url)
             http             = Net::HTTP.new(uri.host, uri.port)
             http.use_ssl     = true
@@ -1168,7 +1161,7 @@ module OMF::SFA::AM
             http.verify_mode = OpenSSL::SSL::VERIFY_NONE
             request          = Net::HTTP::Post.new(uri.request_uri, header)
             request.body     = options.to_json
-            
+
             begin
               out = http.request(request)
               o = JSON.parse(out.body, symbolize_names: true)
@@ -1192,14 +1185,14 @@ module OMF::SFA::AM
 
           # find user keys with /resources/users/user_uuid/keys
           url = "#{subauthority[:address]}resources/users/#{ex_user[:uuid]}/keys/"
-        
+
           uri               = URI.parse(url)
           http              = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl      = true
           http.read_timeout = 500
           http.verify_mode  = OpenSSL::SSL::VERIFY_NONE
           request           = Net::HTTP::Get.new(uri.request_uri)
-          
+
           user_keys = []
           begin
             out = http.request(request)
@@ -1224,8 +1217,8 @@ module OMF::SFA::AM
               options[:ssh_key] = key
 
               pem = File.read(subauthority[:cert])
-              pkey = File.read(subauthority[:key])    
-            
+              pkey = File.read(subauthority[:key])
+
               uri              = URI.parse(url)
               http             = Net::HTTP.new(uri.host, uri.port)
               http.use_ssl     = true
@@ -1234,7 +1227,7 @@ module OMF::SFA::AM
               http.verify_mode = OpenSSL::SSL::VERIFY_NONE
               request          = Net::HTTP::Post.new(uri.request_uri, header)
               request.body     = options.to_json
-              
+
               begin
                 out = http.request(request)
                 o = JSON.parse(out.body, symbolize_names: true)
@@ -1251,8 +1244,8 @@ module OMF::SFA::AM
             options[:uuid] = new_key[:uuid]
 
             pem = File.read(subauthority[:cert])
-            pkey = File.read(subauthority[:key])    
-          
+            pkey = File.read(subauthority[:key])
+
             uri              = URI.parse(url)
             http             = Net::HTTP.new(uri.host, uri.port)
             http.use_ssl     = true
@@ -1261,7 +1254,7 @@ module OMF::SFA::AM
             http.verify_mode = OpenSSL::SSL::VERIFY_NONE
             request          = Net::HTTP::Put.new(uri.request_uri, header)
             request.body     = options.to_json
-            
+
             begin
               out = http.request(request)
               o = JSON.parse(out.body, symbolize_names: true)
@@ -1277,8 +1270,8 @@ module OMF::SFA::AM
           options[:uuid] = account[:uuid]
 
           pem = File.read(subauthority[:cert])
-          pkey = File.read(subauthority[:key])    
-        
+          pkey = File.read(subauthority[:key])
+
           uri              = URI.parse(url)
           http             = Net::HTTP.new(uri.host, uri.port)
           http.use_ssl     = true
@@ -1287,7 +1280,7 @@ module OMF::SFA::AM
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
           request          = Net::HTTP::Put.new(uri.request_uri, header)
           request.body     = options.to_json
-          
+
           begin
             out = http.request(request)
             o = JSON.parse(out.body, symbolize_names: true)
@@ -1357,7 +1350,7 @@ module OMF::SFA::AM
       http.read_timeout = 500
       http.verify_mode  = OpenSSL::SSL::VERIFY_NONE
       request           = Net::HTTP::Get.new(uri.request_uri)
-      
+
       user_keys = []
       begin
         out = http.request(request)
@@ -1374,59 +1367,59 @@ module OMF::SFA::AM
 
     def to_sfa_xml(root, resource, opts)
       case resource[:resource_type]
-      when 'node'
-        new_element = root.add_child(Nokogiri::XML::Element.new('node', root.document))
-        new_element.set_attribute('component_id', resource[:urn])
-        new_element.set_attribute('component_manager_id', resource[:component_manager_id])
-        new_element.set_attribute('component_name', resource[:name])
-        new_element.set_attribute('exclusive', resource[:exclusive])
-        new_element.set_attribute('monitored', resource[:monitored]) if resource[:monitored] 
-        new_child = new_element.add_child(Nokogiri::XML::Element.new('available', new_element.document))
-        new_child.set_attribute('now', resource[:available])
-        new_child = new_element.add_child(Nokogiri::XML::Element.new('hardware_type', new_element.document))
-        new_child.set_attribute('name', resource[:hardware_type])
-        resource[:interfaces].each do |iface|
-          new_child = new_element.add_child(Nokogiri::XML::Element.new('interface', new_element.document))
-          new_child.set_attribute('component_id', iface[:urn])
-          new_child.set_attribute('component_name', iface[:name])
-          new_child.set_attribute('role', iface[:role])
-          iface[:ips].each do |ip|
-            new_child2 = new_child.add_child(Nokogiri::XML::Element.new('ip', new_child.document))
-            new_child2.set_attribute('address', ip[:address])
-            new_child2.set_attribute('type', ip[:type])
-            new_child2.set_attribute('netmask', ip[:netmask])
-          end unless iface[:ips].nil?
-        end if resource[:interfaces]
-        if resource[:location]
-          new_child = new_element.add_child(Nokogiri::XML::Element.new('location', new_element.document))
-          new_child.set_attribute('city', resource[:location][:city])
-          new_child.set_attribute('country', resource[:location][:country])
-          new_child.set_attribute('latitude', resource[:location][:latitude])
-          new_child.set_attribute('longitude', resource[:location][:longitude])
-          new_child2 = new_child.add_child(Nokogiri::XML::Element.new('ol:position_3d', new_child.document))
-          new_child2.set_attribute('x', resource[:location][:position_3d_x])
-          new_child2.set_attribute('y', resource[:location][:position_3d_y])
-          new_child2.set_attribute('z', resource[:location][:position_3d_z])
-        end
-        if opts[:type].downcase == 'manifest' && resource[:gateway]
-          new_child = new_element.add_child(Nokogiri::XML::Element.new('login', new_element.document))
-          new_child.set_attribute('authentication', "ssh-keys")
-          new_child.set_attribute('hostname', resource[:gateway])
-          new_child.set_attribute('port', "22")
-          new_child.set_attribute('username', opts[:account][:name])
-        end
-        resource[:leases].each do |lease|
-          new_child = new_element.add_child(Nokogiri::XML::Element.new('ol:lease_ref', new_element.document))
-          new_child.set_attribute('id_ref', lease[:uuid])
-        end unless resource[:leases].nil?
-      when 'lease'
-        new_element = root.add_child(Nokogiri::XML::Element.new('ol:lease', root.document))
-        new_element.set_attribute('id', resource[:uuid])
-        new_element.set_attribute('sliver_id', resource[:urn])
-        new_element.set_attribute('valid_from', resource[:valid_from])
-        new_element.set_attribute('valid_until', resource[:valid_until])
-      else
-        #just ignoring for now
+        when 'node'
+          new_element = root.add_child(Nokogiri::XML::Element.new('node', root.document))
+          new_element.set_attribute('component_id', resource[:urn])
+          new_element.set_attribute('component_manager_id', resource[:component_manager_id])
+          new_element.set_attribute('component_name', resource[:name])
+          new_element.set_attribute('exclusive', resource[:exclusive])
+          new_element.set_attribute('monitored', resource[:monitored]) if resource[:monitored]
+          new_child = new_element.add_child(Nokogiri::XML::Element.new('available', new_element.document))
+          new_child.set_attribute('now', resource[:available])
+          new_child = new_element.add_child(Nokogiri::XML::Element.new('hardware_type', new_element.document))
+          new_child.set_attribute('name', resource[:hardware_type])
+          resource[:interfaces].each do |iface|
+            new_child = new_element.add_child(Nokogiri::XML::Element.new('interface', new_element.document))
+            new_child.set_attribute('component_id', iface[:urn])
+            new_child.set_attribute('component_name', iface[:name])
+            new_child.set_attribute('role', iface[:role])
+            iface[:ips].each do |ip|
+              new_child2 = new_child.add_child(Nokogiri::XML::Element.new('ip', new_child.document))
+              new_child2.set_attribute('address', ip[:address])
+              new_child2.set_attribute('type', ip[:type])
+              new_child2.set_attribute('netmask', ip[:netmask])
+            end unless iface[:ips].nil?
+          end if resource[:interfaces]
+          if resource[:location]
+            new_child = new_element.add_child(Nokogiri::XML::Element.new('location', new_element.document))
+            new_child.set_attribute('city', resource[:location][:city])
+            new_child.set_attribute('country', resource[:location][:country])
+            new_child.set_attribute('latitude', resource[:location][:latitude])
+            new_child.set_attribute('longitude', resource[:location][:longitude])
+            new_child2 = new_child.add_child(Nokogiri::XML::Element.new('ol:position_3d', new_child.document))
+            new_child2.set_attribute('x', resource[:location][:position_3d_x])
+            new_child2.set_attribute('y', resource[:location][:position_3d_y])
+            new_child2.set_attribute('z', resource[:location][:position_3d_z])
+          end
+          if opts[:type].downcase == 'manifest' && resource[:gateway]
+            new_child = new_element.add_child(Nokogiri::XML::Element.new('login', new_element.document))
+            new_child.set_attribute('authentication', "ssh-keys")
+            new_child.set_attribute('hostname', resource[:gateway])
+            new_child.set_attribute('port', "22")
+            new_child.set_attribute('username', opts[:account][:name])
+          end
+          resource[:leases].each do |lease|
+            new_child = new_element.add_child(Nokogiri::XML::Element.new('ol:lease_ref', new_element.document))
+            new_child.set_attribute('id_ref', lease[:uuid])
+          end unless resource[:leases].nil?
+        when 'lease'
+          new_element = root.add_child(Nokogiri::XML::Element.new('ol:lease', root.document))
+          new_element.set_attribute('id', resource[:uuid])
+          new_element.set_attribute('sliver_id', resource[:urn])
+          new_element.set_attribute('valid_from', resource[:valid_from])
+          new_element.set_attribute('valid_until', resource[:valid_until])
+        else
+          #just ignoring for now
       end
     end
 
