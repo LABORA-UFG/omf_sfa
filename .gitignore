@@ -26,3 +26,8 @@ doc/
 
 inventory.db
 Gemfile.lock
+
+# Docker files
+dockerization/ubuntu14.04/broker.env
+dockerization/ubuntu14.04/docker-compose.yml
+etc/omf-sfa/omf-sfa-am.yaml

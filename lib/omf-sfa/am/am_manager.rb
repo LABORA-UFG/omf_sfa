@@ -361,6 +361,7 @@ module OMF::SFA::AM
     #
     def find_resource(resource_descr, resource_type, authorizer)
       debug "find_resource: descr: '#{resource_descr.inspect}'"
+      resource_type = resource_type.singularize.camelize
       if resource_descr.kind_of? OMF::SFA::Model::Resource
         resource = resource_descr
       elsif resource_descr.kind_of? Hash
@@ -1014,7 +1015,11 @@ module OMF::SFA::AM
     end
 
     def update_resource(resource_desc, resource_type, authorizer, new_attributes)
-
+      resource_type = resource_type.singularize.camelize
+      vm_resource = self.find_resource(resource_desc, resource_type, authorizer)
+      authorizer.can_modify_resource?(vm_resource, resource_type)
+      vm_resource.update(new_attributes)
+      vm_resource
     end
   end # class
 end # OMF::SFA::AM
