@@ -705,7 +705,7 @@ module OMF::SFA::AM
           unless scheduler.lease_component(lease, c)
             scheduler.delete_lease(lease)
             release_resources(comps, authorizer)
-            raise NotAuthorizedException.new "Reservation for the resource '#{c.name}' failed. The resource is either unavailable or a policy quota has been exceeded."
+            raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Reservation for the resource '#{c.name}' failed. The resource is either unavailable or a policy quota has been exceeded."
           end
         end
         resource = lease
