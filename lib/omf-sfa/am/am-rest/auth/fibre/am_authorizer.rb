@@ -21,7 +21,7 @@ module OMF::SFA::AM::Rest::FibreAuth
     attr_reader :user
 
 
-    def self.create_for_rest_request(credential, am_manager)
+    def self.create_for_rest_request(credential, am_manager, ch_key)
       debug "Requester #{credential.signer_urn} :: #{credential.user_urn}"
 
       user_descr = {}
@@ -36,7 +36,7 @@ module OMF::SFA::AM::Rest::FibreAuth
       end
 
       account_urn = if credential.type == 'slice' then credential.target_urn else nil end
-      self.new(account_urn, user, credential, am_manager)
+      self.new(account_urn, user, credential, am_manager, ch_key)
     end
 
 
@@ -145,12 +145,13 @@ module OMF::SFA::AM::Rest::FibreAuth
 
     protected
 
-    def initialize(account_urn, user, credential, am_manager)
+    def initialize(account_urn, user, credential, am_manager, ch_key)
       super()
 
       debug "Initialize for account: #{account_urn} and user: #{user.inspect})"
       @user = user
       @credential = credential
+      @ch_key = ch_key
       @account_urn = account_urn
       @am_manager = am_manager
       @permissions = create_credential_permissions(credential)
