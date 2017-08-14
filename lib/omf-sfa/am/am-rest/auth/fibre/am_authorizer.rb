@@ -20,6 +20,10 @@ module OMF::SFA::AM::Rest::FibreAuth
     #        @return [User] The user associated with this membership
     attr_reader :user
 
+    # @!attribute [r] ch_key
+    #        @return [String] The Clearing House key associated with this membership
+    attr_reader :ch_key
+
 
     def self.create_for_rest_request(credential, am_manager, ch_key)
       debug "Requester #{credential.signer_urn} :: #{credential.user_urn}"
