@@ -98,7 +98,7 @@ module OMF::SFA::AM::Rest::FibreAuth
     def can_view_account?(account)
       debug "Check permission 'can_view_account?' (#{account.urn == @account_urn}, #{@permissions[:can_view_account?]})"
 
-      return true if (((account.urn == @account_urn) || account.nil?) && @permissions[:can_view_account?])
+      return true if (((account.urn == @account_urn) || account.nil?) && @permissions[:can_view_account?]) || (account.nil? || account == @am_manager._get_nil_account)
       raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to view this account')
     end
 
