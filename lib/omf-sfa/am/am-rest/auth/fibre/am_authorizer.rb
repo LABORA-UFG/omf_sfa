@@ -88,7 +88,7 @@ module OMF::SFA::AM::Rest::FibreAuth
       can_release_resource = (@permissions[:can_release_resource?] &&
           (is_user_cred || (is_slice_cred  && resource.account == @account)))
 
-      debug "Check permission 'can_release_resource?' (#{can_release_resource}, #{resource.urn})"
+      debug "Check permission 'can_release_resource?' (#{can_release_resource}, #{resource})"
       return true if can_release_resource
       raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to release this resource')
     end

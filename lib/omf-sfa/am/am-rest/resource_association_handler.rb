@@ -18,7 +18,8 @@ module OMF::SFA::AM::Rest
       desc = {
           :or => {
               :uuid => source_id,
-              :urn => source_id
+              :urn => source_id,
+              :name => source_id
           }
       }
       authorizer = opts[:req].session[:authorizer]
