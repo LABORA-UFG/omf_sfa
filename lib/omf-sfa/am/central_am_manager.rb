@@ -41,7 +41,6 @@ module OMF::SFA::AM
       @@sfa_namespaces[:omf]  = 'http://schema.mytestbed.net/sfa/rspec/1'
       @@sfa_namespaces[:ol]   = 'http://nitlab.inf.uth.gr/schema/sfa/rspec/1'
       @@sfa_namespaces[:flex] = 'http://nitlab.inf.uth.gr/schema/sfa/rspec/lte/1'
-
     end
 
     ### ACCOUNTS: creating, finding, and releasing accounts

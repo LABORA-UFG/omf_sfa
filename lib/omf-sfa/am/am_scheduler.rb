@@ -15,6 +15,7 @@ module OMF::SFA::AM
   class AMScheduler < OMF::Common::LObject
 
     @@mapping_hook = nil
+    @am_manager = nil
 
     attr_reader :event_scheduler, :options
 
@@ -57,22 +58,36 @@ module OMF::SFA::AM
     end
 
     def create_sliver_type(resource_descr, extra_infos)
-      desc = {}
-      desc[:name] = extra_infos[:name] unless extra_infos[:name].nil?
-      desc[:uuid] = extra_infos[:uuid] unless extra_infos[:uuid].nil?
-      desc[:urn] = extra_infos[:uuid] unless extra_infos[:urn].nil?
+      desc = {:or => {}}
+      desc[:or][:name] = extra_infos[:name] unless extra_infos[:name].nil?
+      desc[:or][:uuid] = extra_infos[:uuid] unless extra_infos[:uuid].nil?
+      desc[:or][:urn] = extra_infos[:uuid] unless extra_infos[:urn].nil?
 
-      sliver_type = OMF::SFA::Model::SliverType.first(desc)
-
+      sliver_type = @am_manager.find_resource(desc, 'sliver_type', @authorizer)
       if sliver_type.nil?
         raise UnknownResourceException.new "Resource '#{extra_infos.inspect}' is not available or doesn't exist"
       end
 
-      # Check if the label of resource is passed
-      raise UnknownResourceException.new "You need to inform label in the sliver info to proceed with this request." if extra_infos[:label].nil?
-      # Check if label is unique
-      sliver_resource = OMF::SFA::Model::SliverType.where({:label => extra_infos[:label]}).first
+      # Check if the label of resource is passed and if it is unique
+      raise "You need to specify 'label' in the sliver info to proceed with this request." if extra_infos[:label].nil?
+      begin
+        sliver_resource = @am_manager.find_resource({:label => extra_infos[:label]}, 'sliver_type', @authorizer)
+      rescue UnknownResourceException => e
+        sliver_resource = nil
+      end
       raise "Sliver type with label #{extra_infos[:label]} already exists." unless sliver_resource.nil?
+
+      # Check if the disk_image is passed
+      raise "You need to specify the 'disk_image' to be used in the sliver info." if extra_infos[:disk_image].nil?
+      disk_desc = {:or => {}}
+      disk_desc[:or][:urn] = extra_infos[:disk_image]
+      disk_desc[:or][:uuid] = extra_infos[:disk_image]
+      begin
+        disk_resource = @am_manager.find_resource(disk_desc, 'disk_image', @authorizer)
+      rescue Exception => e
+        error e
+        raise "Could not find disk_image with urn or uuid = '#{extra_infos[:disk_image]}'."
+      end
 
       child_sliver = sliver_type.clone
 
@@ -81,8 +96,9 @@ module OMF::SFA::AM
       child_sliver[:label] = extra_infos[:label] unless extra_infos[:label].nil?
       child_sliver[:status] = 'DOWN'
 
-      ac = OMF::SFA::Model::Account[resource_descr[:account_id]] #search with id
+      ac = @am_manager.find_resource({:id => resource_descr[:account_id]}, 'account', @authorizer)
       child_sliver.account = ac
+      child_sliver.disk_image = disk_resource
       child_sliver.save
       sliver_type.add_child(child_sliver)
 
@@ -356,6 +372,14 @@ module OMF::SFA::AM
         @@am_policies = AMPolicies.new(opts)
       end
       #@am_liaison = OMF::SFA::AM::AMLiaison.new
+    end
+
+    def post_initialize(am_manager)
+      @am_manager = am_manager
+    end
+
+    def set_authorizer(authorizer)
+      @authorizer = authorizer
     end
 
     def initialize_event_scheduler

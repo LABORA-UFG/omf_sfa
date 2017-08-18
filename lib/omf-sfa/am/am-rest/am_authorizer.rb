@@ -130,6 +130,7 @@ module OMF::SFA::AM::Rest
       debug "Initialize for account: #{account} and user: #{user.inspect})"
       @user = user
       @am_manager = am_manager
+      @am_manager.set_authorizer(self)
 
       if @user.nil?
         permissions = {

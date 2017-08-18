@@ -153,6 +153,7 @@ module OMF::SFA::AM::Rest::FibreAuth
       @credential = credential
       @account_urn = account_urn
       @am_manager = am_manager
+      @am_manager.set_authorizer(self)
       @permissions = create_credential_permissions(credential)
       @account = nil
 

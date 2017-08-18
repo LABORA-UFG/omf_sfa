@@ -36,6 +36,12 @@ module OMF::SFA::AM
     #
     def initialize(scheduler)
       @scheduler = scheduler
+      @scheduler.post_initialize(self)
+    end
+
+    def set_authorizer(authorizer)
+      @authorizer = authorizer
+      @scheduler.set_authorizer(authorizer)
     end
 
     def _get_nil_account()
@@ -365,6 +371,7 @@ module OMF::SFA::AM
       if resource_descr.kind_of? OMF::SFA::Model::Resource
         resource = resource_descr
       elsif resource_descr.kind_of? Hash
+        scape_first = false
         model = eval("OMF::SFA::Model::#{resource_type.camelize}")
         if resource_descr[:or]
           resource = nil
@@ -375,10 +382,13 @@ module OMF::SFA::AM
               resource = resource.or({key => resource_descr[:or][key]})
             end
           end
+        elsif resource_descr[:id]
+          resource = model[resource_descr[:id]]
+          scape_first = true
         else
           resource = model.where(resource_descr)
         end
-        resource = resource.first
+        resource = resource.first unless scape_first
       else
         raise FormatException.new "Unknown resource description type '#{resource_descr.class}' (#{resource_descr})"
       end

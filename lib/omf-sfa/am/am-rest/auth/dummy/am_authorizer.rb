@@ -21,6 +21,7 @@ module OMF::SFA::AM::Rest::DummyAuth
       super()
 
       @am_manager = am_manager
+      @am_manager.set_authorizer(self)
       @permissions = {
           can_create_account?:   true,
           can_view_account?:     true,

@@ -1,0 +1,21 @@
+{
+  "name": "bruno_lease",
+  "valid_from": "2017-12-7 19:00:00 -0200",
+  "valid_until": "2017-12-7 20:00:00 -0200",
+  "account_attributes": {
+    "uuid": "f5d9be6a-2971-4ce2-9301-dbe4c92dcd9c"
+  },
+  "components": [{
+    "uuid": "071aef20-11d2-4c64-a3d5-c01f183fbbc8",
+    "sliver_infos": {
+      "exclusive": false,
+      "sliver_type": {
+        "label": "bruno_lease:vm5",
+        "name": "virtual_machine",
+        "cpu_cores": 2,
+        "ram_in_mb": "512",
+        "disk_image": "urn:publicid:IDN+ufg.br+diskimage+ubuntu_14_04_lts"
+      }
+    }
+  }]
+}

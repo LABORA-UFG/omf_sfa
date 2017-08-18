@@ -53,6 +53,7 @@ module OMF::SFA::Model
     attr_reader :name, :short_name, :type, :domain, :urn
 
     def initialize(short_name, type = nil, domain = nil)
+      short_name = short_name.parameterize.underscore
       @short_name = short_name
       @domain = domain || Constants.default_domain
       if type
