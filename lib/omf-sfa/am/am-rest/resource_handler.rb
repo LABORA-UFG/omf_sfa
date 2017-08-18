@@ -382,3 +382,10 @@ module OMF::SFA::AM::Rest
     end
   end # ResourceHandler
 end # module
+
+
+class Time
+  def to_json(options = {})
+    super
+  end
+end

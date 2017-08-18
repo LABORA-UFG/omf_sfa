@@ -58,7 +58,7 @@ module OMF::SFA::AM
       debug "central find_or_create_account: '#{account_descr.inspect}'"
 
       acc = find_account(account_descr, authorizer)
-      return acc unless acc.nil? || acc.empty?
+      return JSON.parse(acc.to_json, object_class: OpenStruct) unless acc.nil? || acc.empty?
 
       raise UnknownResourceException.new "The account with description '#{account_descr}' does not exist. Please describe the account with a URN if you wish to create it." unless account_descr[:urn]
 
@@ -83,7 +83,8 @@ module OMF::SFA::AM
       rescue Errno::ECONNREFUSED
         debug "connection to #{url} refused."
       end
-      resource
+      res = JSON.parse(resource)
+      res
     end
 
     # Return the account described by +account_descr+.
@@ -315,8 +316,6 @@ module OMF::SFA::AM
         return find_lease(lease_descr, authorizer)
       rescue UnavailableResourceException
       end
-
-
 
       comps = resource_descr[:components] || resource_descr[:components_attributes]
 
