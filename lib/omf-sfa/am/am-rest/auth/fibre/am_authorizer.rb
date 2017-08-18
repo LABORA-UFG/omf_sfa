@@ -20,8 +20,12 @@ module OMF::SFA::AM::Rest::FibreAuth
     #        @return [User] The user associated with this membership
     attr_reader :user
 
+    # @!attribute [r] ch_key
+    #        @return [String] The Clearing House key associated with this membership
+    attr_reader :ch_key
 
-    def self.create_for_rest_request(credential, am_manager)
+
+    def self.create_for_rest_request(credential, am_manager, ch_key)
       debug "Requester #{credential.signer_urn} :: #{credential.user_urn}"
 
       user_descr = {}
@@ -36,7 +40,7 @@ module OMF::SFA::AM::Rest::FibreAuth
       end
 
       account_urn = if credential.type == 'slice' then credential.target_urn else nil end
-      self.new(account_urn, user, credential, am_manager)
+      self.new(account_urn, user, credential, am_manager, ch_key)
     end
 
 
@@ -84,7 +88,7 @@ module OMF::SFA::AM::Rest::FibreAuth
       can_release_resource = (@permissions[:can_release_resource?] &&
           (is_user_cred || (is_slice_cred  && resource.account == @account)))
 
-      debug "Check permission 'can_release_resource?' (#{can_release_resource}, #{resource.urn})"
+      debug "Check permission 'can_release_resource?' (#{can_release_resource}, #{resource})"
       return true if can_release_resource
       raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to release this resource')
     end
@@ -94,7 +98,7 @@ module OMF::SFA::AM::Rest::FibreAuth
     def can_view_account?(account)
       debug "Check permission 'can_view_account?' (#{account.urn == @account_urn}, #{@permissions[:can_view_account?]})"
 
-      return true if (((account.urn == @account_urn) || account.nil?) && @permissions[:can_view_account?])
+      return true if (((account.urn == @account_urn) || account.nil?) && @permissions[:can_view_account?]) || (account.nil? || account == @am_manager._get_nil_account)
       raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to view this account')
     end
 
@@ -145,12 +149,13 @@ module OMF::SFA::AM::Rest::FibreAuth
 
     protected
 
-    def initialize(account_urn, user, credential, am_manager)
+    def initialize(account_urn, user, credential, am_manager, ch_key)
       super()
 
       debug "Initialize for account: #{account_urn} and user: #{user.inspect})"
       @user = user
       @credential = credential
+      @ch_key = ch_key
       @account_urn = account_urn
       @am_manager = am_manager
       @am_manager.set_authorizer(self)
