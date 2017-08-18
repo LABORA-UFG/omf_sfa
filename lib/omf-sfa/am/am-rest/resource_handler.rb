@@ -161,7 +161,7 @@ module OMF::SFA::AM::Rest
         if clean_state
           resource = update_a_resource(body, resource_type, authenticator)
         else
-          resource = create_new_resource(body, resource_type, authenticator)
+          resource = @am_manager.create_new_resource(body, resource_type, authenticator)
         end
       else
         raise UnsupportedBodyFormatException.new(format)
@@ -276,123 +276,6 @@ module OMF::SFA::AM::Rest
       [type, params]
     end
 
-    # Create a new resource
-    #
-    # @param [Hash] Describing properties of the requested resource
-    # @param [String] Type to create
-    # @param [Authorizer] Defines context for authorization decisions
-    # @return [OResource] The resource created
-    # @raise [UnknownResourceException] if no resource can be created
-    #
-    def create_new_resource(resource_descr, type_to_create, authorizer)
-      debug "create_new_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
-      authorizer.can_create_resource?(resource_descr, type_to_create)
-
-      if type_to_create == "Lease" #Lease is a unigue case, needs special treatment
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute account is mandatory." if resource_descr[:account].nil? && resource_descr[:account_attributes].nil?
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute components is mandatory." if (resource_descr[:components].nil? || resource_descr[:components].empty?) && (resource_descr[:components_attributes].nil? || resource_descr[:components_attributes].empty?)
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Attributes valid_from and valid_until are mandatory." if resource_descr[:valid_from].nil? || resource_descr[:valid_until].nil?
-
-        res_descr = {}
-        res_descr[:name] = resource_descr[:name]
-        res_descr[:valid_from] = resource_descr[:valid_from]
-        res_descr[:valid_until] = resource_descr[:valid_until]
-        ac_desc = resource_descr[:account] || resource_descr[:account_attributes]
-        ac = OMF::SFA::Model::Account.first(ac_desc)
-        # ac = @am_manager.find_or_create_account(ac_desc, authorizer)
-        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Account with description '#{ac_desc}' does not exist." if ac.nil?
-        raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Account with description '#{ac_desc}' is closed." unless ac.active?
-        if ac.kind_of? OMF::SFA::Model::Account
-          res_descr[:account_id] = ac.id
-        else
-          res_descr[:account] = {}
-          res_descr[:account][:urn] = ac[:urn]
-        end
-        lease = @am_manager.find_or_create_lease(res_descr, authorizer)
-
-        comps = resource_descr[:components] || resource_descr[:components_attributes]
-        nil_account_id = @am_manager._get_nil_account.id
-
-        not_founded_components = []
-        components = []
-        comps.each do |c|
-          desc = {}
-          desc[:account_id] = nil_account_id
-          desc[:uuid] = c[:uuid] unless c[:uuid].nil?
-          desc[:name] = c[:name] unless c[:name].nil?
-          desc[:urn] = c[:urn] unless c[:urn].nil?
-          not_founded_components.push(c[:uuid])
-
-          if k = OMF::SFA::Model::Resource.first(desc)
-            k[:sliver_infos] = c[:sliver_infos] unless c[:sliver_infos].nil?
-            components << k
-            not_founded_components.delete(c[:uuid])
-          end
-        end
-
-        unless not_founded_components.empty?
-          raise UnknownResourceException.new "You are trying to reserve unknown resources." \
-                            "Resources with the following uuids were not found: #{not_founded_components.to_s.gsub('"', '')}"
-        end
-
-        scheduler = @am_manager.get_scheduler
-        comps = []
-        components.each do |comp|
-          comps << c = scheduler.create_child_resource({uuid: comp.uuid, account_id: ac.id}, comp[:type].to_s.split('::').last, comp[:sliver_infos])
-          unless scheduler.lease_component(lease, c)
-            scheduler.delete_lease(lease)
-            @am_manager.release_resources(comps, authorizer)
-            raise NotAuthorizedException.new "Reservation for the resource '#{c.name}' failed. The resource is either unavailable or a policy quota has been exceeded."
-          end
-        end
-        resource = lease
-      else
-        if resource_descr.kind_of? Array
-          descr = []
-          resource_descr.each do |res|
-            res_descr = {}
-            res_descr.merge!({uuid: res[:uuid]}) if res.has_key?(:uuid)
-            res_descr.merge!({name: res[:name]}) if res.has_key?(:name)
-            descr << res_descr unless eval("OMF::SFA::Model::#{type_to_create}").first(res_descr)
-          end
-          raise OMF::SFA::AM::Rest::BadRequestException.new "No resources described in description #{resource_descr} is valid. Maybe all the resources alreadt=y exist." if descr.empty?
-        elsif resource_descr.kind_of? Hash
-          descr = {}
-          descr.merge!({uuid: resource_descr[:uuid]}) if resource_descr.has_key?(:uuid)
-          descr.merge!({name: resource_descr[:name]}) if resource_descr.has_key?(:name)
-          descr.merge!({urn: resource_descr[:urn]}) if resource_descr.has_key?(:urn)
-
-          if descr.empty?
-            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is '#{resource_descr}'."
-          else
-            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource with descr '#{descr} already exists'." if eval("OMF::SFA::Model::#{type_to_create}").first(descr)
-          end
-        end
-
-        if resource_descr.kind_of? Array
-          resource = []
-          resource_descr.each do |res_desc|
-            resource << eval("OMF::SFA::Model::#{type_to_create}").create(res_desc)
-            @am_manager.manage_resource(resource.last) if resource.last.account.nil?
-            if type_to_create == 'Account'
-              @am_manager.liaison.create_account(resource.last)
-            end
-          end
-        elsif resource_descr.kind_of? Hash
-          begin
-            resource = eval("OMF::SFA::Model::#{type_to_create}").create(resource_descr)
-          rescue => ex
-            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is invalid: #{ex.to_s}"
-          end
-          @am_manager.manage_resource(resource) if resource.class.can_be_managed?
-          if type_to_create == 'Account'
-            @am_manager.liaison.create_account(resource)
-          end
-        end
-      end
-      resource
-    end
-
     # Update a resource
     #
     # @param [Hash] Describing properties of the requested resource
@@ -499,3 +382,10 @@ module OMF::SFA::AM::Rest
     end
   end # ResourceHandler
 end # module
+
+
+class Time
+  def to_json(options = {})
+    super
+  end
+end

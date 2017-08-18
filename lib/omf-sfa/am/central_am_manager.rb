@@ -57,7 +57,7 @@ module OMF::SFA::AM
       debug "central find_or_create_account: '#{account_descr.inspect}'"
 
       acc = find_account(account_descr, authorizer)
-      return acc unless acc.nil? || acc.empty?
+      return JSON.parse(acc.to_json, object_class: OpenStruct) unless acc.nil? || acc.empty?
 
       raise UnknownResourceException.new "The account with description '#{account_descr}' does not exist. Please describe the account with a URN if you wish to create it." unless account_descr[:urn]
 
@@ -69,19 +69,11 @@ module OMF::SFA::AM
       url += "?uuid=#{account_descr[:uuid]}" if account_descr[:uuid]
       url += "?urn=#{account_descr[:urn]}" if account_descr[:urn]
 
-      header         = {"Content-Type" => "application/json", "Accept" => "application/json"}
       options        = {}
       options[:name] = account_descr[:name] if account_descr
       options[:urn]  = account_descr[:urn]
-      pem = File.read(subauthority[:cert])
 
-      uri              = URI.parse(url)
-      http             = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl     = true
-      http.cert        = OpenSSL::X509::Certificate.new(pem)
-      http.key         = OpenSSL::PKey::RSA.new(pem)
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-      request          = Net::HTTP::Post.new(uri.request_uri, header)
+      http, request = prepare_request("POST", url, authorizer,subauthority, options)
 
       begin
         out = http.request(request)
@@ -90,7 +82,8 @@ module OMF::SFA::AM
       rescue Errno::ECONNREFUSED
         debug "connection to #{url} refused."
       end
-      resource
+      res = JSON.parse(resource)
+      res
     end
 
     # Return the account described by +account_descr+.
@@ -120,11 +113,7 @@ module OMF::SFA::AM
           url += "?uuid=#{account_descr[:uuid]}" if account_descr[:uuid]
           url += "?urn=#{account_descr[:urn].gsub('+', '%2B')}" if account_descr[:urn]
 
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -158,11 +147,7 @@ module OMF::SFA::AM
         tds << Thread.new {
           url = "#{opts[:address]}resources/accounts"
 
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -250,11 +235,7 @@ module OMF::SFA::AM
           url += "?uuid=#{user_descr[:uuid]}" if user_descr[:uuid]
           url += "?urn=#{user_descr[:urn].gsub('+', '%2B')}" if user_descr[:urn]
 
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -301,11 +282,7 @@ module OMF::SFA::AM
             raise UnavailableResourceException.new "Unknown lease '#{lease_descr.inspect}'"
           end
 
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -339,8 +316,6 @@ module OMF::SFA::AM
       rescue UnavailableResourceException
       end
 
-
-
       comps = resource_descr[:components] || resource_descr[:components_attributes]
 
       # raise UnknownResourceException.new "The account with description '#{lease_descr}' does not exist. Please describe the account with a URN if you wish to create it." unless account_descr[:urn]
@@ -351,19 +326,11 @@ module OMF::SFA::AM
 
       url = "#{opts[:address]}resources/leases"
 
-      header         = {"Content-Type" => "application/json", "Accept" => "application/json"}
       options        = {}
       options[:name] = lease_descr[:name] if lease_descr[:name]
       options[:urn]  = lease_descr[:urn]  if lease_descr[:urn]
-      pem = File.read(subauthority[:cert])
 
-      uri              = URI.parse(url)
-      http             = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl     = true
-      http.cert        = OpenSSL::X509::Certificate.new(pem)
-      http.key         = OpenSSL::PKey::RSA.new(pem)
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-      request          = Net::HTTP::Post.new(uri.request_uri, header)
+      http, request = prepare_request("POST", url, authorizer,subauthority, options)
 
       begin
         out = http.request(request)
@@ -401,11 +368,7 @@ module OMF::SFA::AM
             end
           end
 
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -513,11 +476,7 @@ module OMF::SFA::AM
             url += "#{resource_descr[:name]}"
           end
 
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -579,11 +538,7 @@ module OMF::SFA::AM
           end
           url += "#{target_type.underscore.pluralize}/" unless target_type.nil? || target_type.empty?
 
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -634,11 +589,7 @@ module OMF::SFA::AM
             end
           end
 
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -713,12 +664,7 @@ module OMF::SFA::AM
           url = "#{opts[:address]}resources/accounts/"
           url += "#{account.name}/resources"
 
-          uri               = URI.parse(url)
-          http              = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl      = true
-          http.read_timeout = 500
-          http.verify_mode  = OpenSSL::SSL::VERIFY_NONE
-          request           = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -760,12 +706,7 @@ module OMF::SFA::AM
             end
           end
 
-          uri               = URI.parse(url)
-          http              = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl      = true
-          http.read_timeout = 500
-          http.verify_mode  = OpenSSL::SSL::VERIFY_NONE
-          request           = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           begin
             out = http.request(request)
@@ -823,6 +764,123 @@ module OMF::SFA::AM
     def create_resource(resource_descr, type_to_create, authorizer)
       debug "central create_resource: resource '#{resource_descr.inspect}' type: '#{resource_type}'"
 
+    end
+
+    # Create a new resource
+    #
+    # @param [Hash] Describing properties of the requested resource
+    # @param [String] Type to create
+    # @param [Authorizer] Defines context for authorization decisions
+    # @return [OResource] The resource created
+    # @raise [UnknownResourceException] if no resource can be created
+    #
+    def create_new_resource(resource_descr, type_to_create, authorizer)
+      debug "create_new_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
+      authorizer.can_create_resource?(resource_descr, type_to_create)
+
+      if type_to_create == "Lease" #Lease is a unigue case, needs special treatment
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute account is mandatory." if resource_descr[:account].nil? && resource_descr[:account_attributes].nil?
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute components is mandatory." if (resource_descr[:components].nil? || resource_descr[:components].empty?) && (resource_descr[:components_attributes].nil? || resource_descr[:components_attributes].empty?)
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Attributes valid_from and valid_until are mandatory." if resource_descr[:valid_from].nil? || resource_descr[:valid_until].nil?
+
+        res_descr = {}
+        res_descr[:name] = resource_descr[:name]
+        res_descr[:valid_from] = resource_descr[:valid_from]
+        res_descr[:valid_until] = resource_descr[:valid_until]
+        ac_desc = resource_descr[:account] || resource_descr[:account_attributes]
+        ac = OMF::SFA::Model::Account.first(ac_desc)
+        # ac = @am_manager.find_or_create_account(ac_desc, authorizer)
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Account with description '#{ac_desc}' does not exist." if ac.nil?
+        raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Account with description '#{ac_desc}' is closed." unless ac.active?
+        if ac.kind_of? OMF::SFA::Model::Account
+          res_descr[:account_id] = ac.id
+        else
+          res_descr[:account] = {}
+          res_descr[:account][:urn] = ac[:urn]
+        end
+        lease = find_or_create_lease(res_descr, authorizer)
+
+        comps = resource_descr[:components] || resource_descr[:components_attributes]
+        nil_account_id = _get_nil_account.id
+
+        not_founded_components = []
+        components = []
+        comps.each do |c|
+          desc = {}
+          desc[:account_id] = nil_account_id
+          desc[:uuid] = c[:uuid] unless c[:uuid].nil?
+          desc[:name] = c[:name] unless c[:name].nil?
+          desc[:urn] = c[:urn] unless c[:urn].nil?
+          not_founded_components.push(c[:uuid])
+
+          if k = OMF::SFA::Model::Resource.first(desc)
+            k[:sliver_infos] = c[:sliver_infos] unless c[:sliver_infos].nil?
+            components << k
+            not_founded_components.delete(c[:uuid])
+          end
+        end
+
+        unless not_founded_components.empty?
+          raise UnknownResourceException.new "You are trying to reserve unknown resources." \
+                            "Resources with the following uuids were not found: #{not_founded_components.to_s.gsub('"', '')}"
+        end
+
+        scheduler = get_scheduler
+        comps = []
+        components.each do |comp|
+          comps << c = scheduler.create_child_resource({uuid: comp.uuid, account_id: ac.id}, comp[:type].to_s.split('::').last, comp[:sliver_infos])
+          unless scheduler.lease_component(lease, c)
+            scheduler.delete_lease(lease)
+            release_resources(comps, authorizer)
+            raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Reservation for the resource '#{c.name}' failed. The resource is either unavailable or a policy quota has been exceeded."
+          end
+        end
+        resource = lease
+      else
+        if resource_descr.kind_of? Array
+          descr = []
+          resource_descr.each do |res|
+            res_descr = {}
+            res_descr.merge!({uuid: res[:uuid]}) if res.has_key?(:uuid)
+            res_descr.merge!({name: res[:name]}) if res.has_key?(:name)
+            descr << res_descr unless eval("OMF::SFA::Model::#{type_to_create}").first(res_descr)
+          end
+          raise OMF::SFA::AM::Rest::BadRequestException.new "No resources described in description #{resource_descr} is valid. Maybe all the resources alreadt=y exist." if descr.empty?
+        elsif resource_descr.kind_of? Hash
+          descr = {}
+          descr.merge!({uuid: resource_descr[:uuid]}) if resource_descr.has_key?(:uuid)
+          descr.merge!({name: resource_descr[:name]}) if resource_descr.has_key?(:name)
+          descr.merge!({urn: resource_descr[:urn]}) if resource_descr.has_key?(:urn)
+
+          if descr.empty?
+            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is '#{resource_descr}'."
+          else
+            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource with descr '#{descr} already exists'." if eval("OMF::SFA::Model::#{type_to_create}").first(descr)
+          end
+        end
+
+        if resource_descr.kind_of? Array
+          resource = []
+          resource_descr.each do |res_desc|
+            resource << eval("OMF::SFA::Model::#{type_to_create}").create(res_desc)
+            manage_resource(resource.last) if resource.last.account.nil?
+            if type_to_create == 'Account'
+              @liaison.create_account(resource.last)
+            end
+          end
+        elsif resource_descr.kind_of? Hash
+          begin
+            resource = eval("OMF::SFA::Model::#{type_to_create}").create(resource_descr)
+          rescue => ex
+            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is invalid: #{ex.to_s}"
+          end
+          manage_resource(resource) if resource.class.can_be_managed?
+          if type_to_create == 'Account'
+            liaison.create_account(resource)
+          end
+        end
+      end
+      resource
     end
 
     # Find or create a resource for an account. If it doesn't exist,
@@ -946,22 +1004,11 @@ module OMF::SFA::AM
 
           url = "#{subauth[:address]}resources/accounts"
 
-          header         = {"Content-Type" => "application/json", "Accept" => "application/json"}
           options        = {}
           options[:name] = authorizer.account[:name]
           options[:urn]  = authorizer.account[:urn]
 
-          pem = File.read(subauth[:cert])
-          pkey = File.read(subauth[:key])
-
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.cert        = OpenSSL::X509::Certificate.new(pem)
-          http.key         = OpenSSL::PKey::RSA.new(pkey)
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Post.new(uri.request_uri, header)
-          request.body     = options.to_json
+          http, request = prepare_request("POST", url, authorizer,subauthority, options)
 
           begin
             out = http.request(request)
@@ -1057,7 +1104,6 @@ module OMF::SFA::AM
 
         url = "#{subauthority[:address]}resources/leases"
 
-        header                = {"Content-Type" => "application/json", "Accept" => "application/json"}
         options               = {}
         options[:name]        = lease_el[:client_id] if lease_el[:client_id]
         options[:urn]         = lease_el[:urn]  if lease_el[:urn]
@@ -1066,17 +1112,7 @@ module OMF::SFA::AM
         options[:valid_until] = lease_el[:valid_until]
         options[:components]  = lease_el[:components]
 
-        pem = File.read(subauthority[:cert])
-        pkey = File.read(subauthority[:key])
-
-        uri              = URI.parse(url)
-        http             = Net::HTTP.new(uri.host, uri.port)
-        http.use_ssl     = true
-        http.cert        = OpenSSL::X509::Certificate.new(pem)
-        http.key         = OpenSSL::PKey::RSA.new(pkey)
-        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-        request          = Net::HTTP::Post.new(uri.request_uri, header)
-        request.body     = options.to_json
+        http, request = prepare_request("POST", url, authorizer,subauthority, options)
 
         begin
           out = http.request(request)
@@ -1144,22 +1180,11 @@ module OMF::SFA::AM
           if ex_user.nil? || ex_user.empty?
             url = "#{subauthority[:address]}resources/users"
 
-            header                = {"Content-Type" => "application/json", "Accept" => "application/json"}
             options               = {}
             options[:name]        = user['name'] if user['name']
             options[:urn]         = user['urn']  if user['urn']
 
-            pem = File.read(subauthority[:cert])
-            pkey = File.read(subauthority[:key])
-
-            uri              = URI.parse(url)
-            http             = Net::HTTP.new(uri.host, uri.port)
-            http.use_ssl     = true
-            http.cert        = OpenSSL::X509::Certificate.new(pem)
-            http.key         = OpenSSL::PKey::RSA.new(pkey)
-            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-            request          = Net::HTTP::Post.new(uri.request_uri, header)
-            request.body     = options.to_json
+            http, request = prepare_request("POST", url, authorizer,subauthority, options)
 
             begin
               out = http.request(request)
@@ -1185,12 +1210,7 @@ module OMF::SFA::AM
           # find user keys with /resources/users/user_uuid/keys
           url = "#{subauthority[:address]}resources/users/#{ex_user[:uuid]}/keys/"
 
-          uri               = URI.parse(url)
-          http              = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl      = true
-          http.read_timeout = 500
-          http.verify_mode  = OpenSSL::SSL::VERIFY_NONE
-          request           = Net::HTTP::Get.new(uri.request_uri)
+          http, request = prepare_request("GET", url, authorizer)
 
           user_keys = []
           begin
@@ -1210,22 +1230,11 @@ module OMF::SFA::AM
             unless new_key
               url = "#{subauthority[:address]}resources/keys"
 
-              header            = {"Content-Type" => "application/json", "Accept" => "application/json"}
               options           = {}
               options[:name]    = "#{user['urn'].split('+').last}_#{key.split(' ').last}"
               options[:ssh_key] = key
 
-              pem = File.read(subauthority[:cert])
-              pkey = File.read(subauthority[:key])
-
-              uri              = URI.parse(url)
-              http             = Net::HTTP.new(uri.host, uri.port)
-              http.use_ssl     = true
-              http.cert        = OpenSSL::X509::Certificate.new(pem)
-              http.key         = OpenSSL::PKey::RSA.new(pkey)
-              http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-              request          = Net::HTTP::Post.new(uri.request_uri, header)
-              request.body     = options.to_json
+              http, request = prepare_request("POST", url, authorizer,subauthority, options)
 
               begin
                 out = http.request(request)
@@ -1238,21 +1247,10 @@ module OMF::SFA::AM
 
             url = "#{subauthority[:address]}resources/users/#{ex_user[:uuid]}/keys"
 
-            header         = {"Content-Type" => "application/json", "Accept" => "application/json"}
             options        = {}
             options[:uuid] = new_key[:uuid]
 
-            pem = File.read(subauthority[:cert])
-            pkey = File.read(subauthority[:key])
-
-            uri              = URI.parse(url)
-            http             = Net::HTTP.new(uri.host, uri.port)
-            http.use_ssl     = true
-            http.cert        = OpenSSL::X509::Certificate.new(pem)
-            http.key         = OpenSSL::PKey::RSA.new(pkey)
-            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-            request          = Net::HTTP::Put.new(uri.request_uri, header)
-            request.body     = options.to_json
+            http, request = prepare_request("PUT", url, authorizer,subauthority, options)
 
             begin
               out = http.request(request)
@@ -1264,21 +1262,10 @@ module OMF::SFA::AM
           end
           url = "#{subauthority[:address]}resources/users/#{ex_user[:uuid]}/accounts"
 
-          header         = {"Content-Type" => "application/json", "Accept" => "application/json"}
           options        = {}
           options[:uuid] = account[:uuid]
 
-          pem = File.read(subauthority[:cert])
-          pkey = File.read(subauthority[:key])
-
-          uri              = URI.parse(url)
-          http             = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl     = true
-          http.cert        = OpenSSL::X509::Certificate.new(pem)
-          http.key         = OpenSSL::PKey::RSA.new(pkey)
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-          request          = Net::HTTP::Put.new(uri.request_uri, header)
-          request.body     = options.to_json
+          http, request = prepare_request("PUT", url, authorizer,subauthority, options)
 
           begin
             out = http.request(request)
@@ -1292,6 +1279,26 @@ module OMF::SFA::AM
     end
 
     private
+
+    def prepare_request(type, url, authorizer, subauthority=nil, options=nil, header=nil)
+      header = {"Content-Type" => "application/json", "Accept" => "application/json"} if header.nil?
+      type = type.capitalize
+
+      pem = File.read(subauthority[:cert]) unless subauthority.nil?
+      pkey = File.read(subauthority[:key]) unless subauthority.nil?
+
+      uri              = URI.parse(url)
+      http             = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl     = true
+      http.read_timeout = 500
+      http.cert        = OpenSSL::X509::Certificate.new(pem) unless type == "Get"
+      http.key         = OpenSSL::PKey::RSA.new(pkey) unless type == "Get"
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      request          = eval("Net::HTTP::#{type}").new(uri.request_uri, header)
+      request['CH-Credential'] = authorizer.ch_key
+      request.body     = options.to_json unless options.nil?
+      [http, request]
+    end
 
     def find_subauthority_from_urn(urn)
       domain = urn.split('+')[1]

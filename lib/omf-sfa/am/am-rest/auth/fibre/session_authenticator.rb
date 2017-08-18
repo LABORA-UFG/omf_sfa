@@ -81,7 +81,8 @@ module OMF::SFA::AM::Rest::FibreAuth
 
       req.session[:authorizer] = OMF::SFA::AM::Rest::FibreAuth::AMAuthorizer.create_for_rest_request(
           credential,
-          @opts[:am_manager]
+          @opts[:am_manager],
+          headers['Ch-Credential']
       )
 
       status, headers, body = @app.call(env)
