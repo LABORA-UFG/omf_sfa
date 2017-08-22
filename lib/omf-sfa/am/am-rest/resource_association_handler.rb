@@ -192,10 +192,8 @@ module OMF::SFA::AM::Rest
       authorizer = opts[:req].session[:authorizer]
       source_resource = @am_manager.find_resource(desc, source_type, authorizer)
 
-      single_resource_handler = OMF::SFA::AM::Rest::ResourceHandler.new(@am_manager, @opts)
       body, format = parse_body(opts)
-
-      target_resource = single_resource_handler.create_new_resource(body, target_type.singularize.camelize, authorizer)
+      target_resource = @am_manager.create_new_resource(body, target_type.singularize.camelize, authorizer)
 
       if source_resource.class.method_defined?("add_#{target_type.singularize}")
         raise OMF::SFA::AM::Rest::BadRequestException.new "resources are already associated." if source_resource.send(target_type).include?(target_resource)

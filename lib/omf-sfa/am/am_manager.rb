@@ -1141,7 +1141,10 @@ module OMF::SFA::AM
     end
 
     def update_resource(resource_desc, resource_type, authorizer, new_attributes)
-
+      resource = find_resource(resource_desc, resource_type, authorizer)
+      authorizer.can_modify_resource?(resource, resource_type)
+      resource.update(new_attributes)
+      resource
     end
   end # class
 end # OMF::SFA::AM
