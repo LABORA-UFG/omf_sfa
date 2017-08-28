@@ -164,7 +164,7 @@ module OMF::SFA::AM::Rest::FibreAuth
 
       debug "Credential permissions: #{@permissions}"
 
-      unless account_urn.nil?
+      unless account_urn.nil? or am_manager.kind_of? OMF::SFA::AM::CentralAMManager
         acc_name = OMF::SFA::AM::Utils::create_account_name_from_urn(account_urn)
         @account = am_manager.find_or_create_account({:urn => account_urn, :name => acc_name}, self)
 
@@ -173,18 +173,16 @@ module OMF::SFA::AM::Rest::FibreAuth
           am_manager.renew_account_until(@account, credential.valid_until, self)
         end
 
-        unless am_manager.kind_of? OMF::SFA::AM::CentralAMManager
-          if @account.closed?
-            if @permissions[:can_create_account?]
-              @account.closed_at = nil
-            else
-              raise OMF::SFA::AM::InsufficientPrivilegesException.new("The account is closed and you don't have " +
-                                                                          "the privilege to enable a closed account")
-            end
+        if @account.closed?
+          if @permissions[:can_create_account?]
+            @account.closed_at = nil
+          else
+            raise OMF::SFA::AM::InsufficientPrivilegesException.new("The account is closed and you don't have " +
+                                                                        "the privilege to enable a closed account")
           end
-          @account.add_user(@user) unless @account.users.include?(@user)
-          @account.save
         end
+        @account.add_user(@user) unless @account.users.include?(@user)
+        @account.save
       end
     end
 

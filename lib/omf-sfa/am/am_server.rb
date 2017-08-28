@@ -233,6 +233,7 @@ if $config[:central_broker] && $config[:central_broker][:enabled]
   opts[:central_broker][:subauthorities] = {}
   $config[:central_broker][:subauthorities].each do |subauthority|
     opts[:central_broker][:subauthorities][subauthority[:domain]] = {}
+    opts[:central_broker][:subauthorities][subauthority[:domain]][:domain] = subauthority[:domain]
     opts[:central_broker][:subauthorities][subauthority[:domain]][:address] = subauthority[:address]
     opts[:central_broker][:subauthorities][subauthority[:domain]][:cert]    = subauthority[:cert]
     opts[:central_broker][:subauthorities][subauthority[:domain]][:key]     = subauthority[:key]
