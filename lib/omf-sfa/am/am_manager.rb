@@ -694,6 +694,8 @@ module OMF::SFA::AM
           desc[:uuid] = c[:uuid] unless c[:uuid].nil?
           desc[:name] = c[:name] unless c[:name].nil?
           desc[:urn] = c[:urn] unless c[:urn].nil?
+
+          #TODO fix when urn is passed instead of uuid
           not_founded_components.push(c[:uuid])
 
           if k = OMF::SFA::Model::Resource.first(desc)

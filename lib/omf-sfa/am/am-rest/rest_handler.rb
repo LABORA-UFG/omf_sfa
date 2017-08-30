@@ -21,6 +21,7 @@ module OMF::SFA::AM::Rest
 
     def initialize(err_code, reason)
       super reason
+      reason = reason.gsub('\n', '').delete("\\").delete("\"") if reason.is_a? String
       body = {:exception => {
         :code => err_code,
         :reason => reason
@@ -124,6 +125,10 @@ module OMF::SFA::AM::Rest
         # debug mex.backtrace.join("\n")
         return RackException.new(400, mex.to_s).reply
       rescue ArgumentError => aex
+        debug aex.to_s
+        # debug aex.backtrace.join("\n")
+        return RackException.new(400, aex.to_s).reply
+      rescue OMF::SFA::AM::CentralBrokerException => aex
         debug aex.to_s
         # debug aex.backtrace.join("\n")
         return RackException.new(400, aex.to_s).reply

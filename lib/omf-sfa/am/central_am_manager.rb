@@ -19,6 +19,14 @@ module OMF::SFA::AM
   class UnavailablePropertiesException < AMManagerException; end
   class MissingImplementationException < Exception; end
   class UknownLeaseException < Exception; end
+  class CentralBrokerException < Exception
+
+    def initialize(*exceptions)
+      mensagens = exceptions.collect {|exception| exception.reply[2]}
+      super(mensagens.to_json)
+    end
+
+  end
 
   # The manager is where all the AM related policies and
   # resource management is concentrated. Testbeds with their own
@@ -779,8 +787,9 @@ module OMF::SFA::AM
 
       resources = []
       tds       = []
+      errors = []
       @subauthorities.each do |subauth, opts|
-        options = filter_resources_by_subauthority(resource_descr, subauth)
+        options = filter_components_by_subauthority(resource_descr, subauth)
         if (!options[:components].nil? and !options[:components].empty?) or type_to_create != "Lease"
           tds << Thread.new {
             url = "#{opts[:address]}resources/#{type_to_create.downcase}"
@@ -802,17 +811,27 @@ module OMF::SFA::AM
                 o[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
               end
               resources << o
-            rescue Errno::ECONNREFUSED
-              debug "connection to #{url} refused."
+            rescue Errno::ECONNREFUSED, OMF::SFA::AM::Rest::NotAuthorizedException => e
+              if e.is_a? OMF::SFA::AM::Rest::NotAuthorizedException
+                errors << e
+              else
+                debug "connection to #{url} refused."
+              end
             end
           }
         end
         tds.each {|td| td.join}
       end
+
+      unless errors.empty?
+        release_resources(resources, authorizer)
+        raise CentralBrokerException.new(*errors)
+      end
+
       resources
     end
 
-    def filter_resources_by_subauthority(resources_descr, subauth)
+    def filter_components_by_subauthority(resources_descr, subauth)
       options = resources_descr.clone
       components = resources_descr[:components]
       components = components.select {|component|
@@ -820,6 +839,16 @@ module OMF::SFA::AM
       }
       options[:components] = components
       options
+    end
+
+    def filter_resources_by_subauthority(resources, subauth)
+      selected_resources = resources.select {|resource|
+        resource[:urn].include? subauth
+      }
+      selected_resources.collect {|resource|
+        tmp = {:uuid => resource[:uuid]}
+        tmp
+      }
     end
 
     # Find or create a resource for an account. If it doesn't exist,
@@ -850,7 +879,7 @@ module OMF::SFA::AM
     # @param [Authorizer] Authorization context
     # @raise [InsufficientPrivilegesException] if the resource is not allowed to be released
     #
-    def release_resource(resource, authorizer)
+    def release_resource(resource, authorizer=nil)
       debug "central release_resource: '#{resource.inspect}'"
 
     end
@@ -859,9 +888,38 @@ module OMF::SFA::AM
     #
     # @param [Array<Resource>] Resources to release
     # @param [Authorizer] Authorization context
-    def release_resources(resources, authorizer)
+    def release_resources(resources, authorizer=nil)
+      return unless !resources.nil? and !resources.empty?
       debug "central release_resources: '#{resources.inspect}'"
 
+      outputs = []
+      tds       = []
+      @subauthorities.each do |subauth, opts|
+        options = filter_resources_by_subauthority(resources, subauth)
+        unless options.nil? or options.empty?
+          tds << Thread.new {
+            url = "#{opts[:address]}resources/leases"
+            subauthority = find_subauthority_info(subauth)
+
+            http, request = prepare_request("DELETE", url, authorizer, subauthority, options)
+
+            begin
+              out = http.request(request)
+              check_error_messages(out)
+              response = JSON.parse(out.body, symbolize_names: true)[:resource_response]
+              outputs << response
+            rescue Errno::ECONNREFUSED, OMF::SFA::AM::Rest::NotAuthorizedException => e
+              if e.is_a? OMF::SFA::AM::Rest::NotAuthorizedException
+                error = e
+              else
+                debug "connection to #{url} refused."
+              end
+            end
+          }
+        end
+        tds.each {|td| td.join}
+      end
+      outputs
     end
 
     # This method finds all the components of the specific account and
@@ -1240,7 +1298,7 @@ module OMF::SFA::AM
     end
 
     def check_error_messages(out)
-      if out.code == "401"
+      if out.code.start_with? "4"
         raise OMF::SFA::AM::Rest::NotAuthorizedException.new out.body
       end
     end
