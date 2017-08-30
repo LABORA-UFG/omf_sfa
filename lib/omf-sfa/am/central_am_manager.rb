@@ -801,16 +801,23 @@ module OMF::SFA::AM
               out = http.request(request)
               check_error_messages(out)
               response = JSON.parse(out.body, symbolize_names: true)[:resource_response]
-              if !response.nil? and response.has_key?("resources")
+              if !response.nil? and response.has_key?(:resources)
                 o = response[:resources]
                 o.each do |res|
                   res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
                 end
+                resources += o
               elsif !response.nil?
                 o = response[:resource]
-                o[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
+                if type_to_create == "Lease" and resources.empty?
+                  resources = o
+                elsif type_to_create == "Lease"
+                  resources[:components] += o[:components]
+                else
+                  o[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
+                  resources << o
+                end
               end
-              resources << o
             rescue Errno::ECONNREFUSED, OMF::SFA::AM::Rest::NotAuthorizedException => e
               if e.is_a? OMF::SFA::AM::Rest::NotAuthorizedException
                 errors << e
