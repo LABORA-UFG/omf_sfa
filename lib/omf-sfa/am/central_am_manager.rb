@@ -788,12 +788,15 @@ module OMF::SFA::AM
       resources = []
       tds       = []
       errors = []
+      time = DateTime.now.strftime('%Q')
       @subauthorities.each do |subauth, opts|
         options = filter_components_by_subauthority(resource_descr, subauth)
         if (!options[:components].nil? and !options[:components].empty?) or type_to_create != "Lease"
           tds << Thread.new {
             url = "#{opts[:address]}resources/#{type_to_create.downcase}"
             subauthority = find_subauthority_info(subauth)
+
+            options[:name] = "#{options[:name]}_#{time}"
 
             http, request = prepare_request("POST", url, authorizer, subauthority, options)
 
