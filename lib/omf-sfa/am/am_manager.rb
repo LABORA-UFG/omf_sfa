@@ -695,19 +695,23 @@ module OMF::SFA::AM
           desc[:name] = c[:name] unless c[:name].nil?
           desc[:urn] = c[:urn] unless c[:urn].nil?
 
-          #TODO fix when urn is passed instead of uuid
           not_founded_components.push(c[:uuid])
+          not_founded_components.push(c[:name])
+          not_founded_components.push(c[:urn])
 
           if k = OMF::SFA::Model::Resource.first(desc)
             k[:sliver_infos] = c[:sliver_infos] unless c[:sliver_infos].nil?
             components << k
             not_founded_components.delete(c[:uuid])
+            not_founded_components.delete(c[:name])
+            not_founded_components.delete(c[:urn])
           end
         end
 
         unless not_founded_components.empty?
+          not_founded_components.compact! # removing nils
           raise UnknownResourceException.new "You are trying to reserve unknown resources." \
-                            "Resources with the following uuids were not found: #{not_founded_components.to_s.gsub('"', '')}"
+                            "Resources with the following identifiers were not found: #{not_founded_components.to_s.gsub('"', '')}"
         end
 
         scheduler = get_scheduler
@@ -717,7 +721,7 @@ module OMF::SFA::AM
           unless scheduler.lease_component(lease, c)
             scheduler.delete_lease(lease)
             release_resources(comps, authorizer)
-            raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Reservation for the resource '#{c.name}' failed. The resource is either unavailable or a policy quota has been exceeded."
+            raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Reservation for the resource '#{c.urn}' failed. The resource is either unavailable or a policy quota has been exceeded."
           end
         end
         resource = lease
