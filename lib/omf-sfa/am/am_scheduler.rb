@@ -318,7 +318,7 @@ module OMF::SFA::AM
       total_cpu_cores = allocated_cpu_cores + component.sliver_type.cpu_cores
       total_ram = allocated_ram + component.sliver_type.ram_in_mb
 
-      parent_cores = parent.cpus.inject(0) {|sum, cpu| sum + (cpu.cores * cpu.threads)}
+      parent_cores = parent.cpus.inject(0) {|sum, cpu| sum + (cpu.threads)}
 
       return total_cpu_cores <= parent_cores && total_ram <= parent.ram.to_i
     end
