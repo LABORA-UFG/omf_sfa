@@ -22,7 +22,10 @@ module OMF::SFA::AM
   class CentralBrokerException < Exception
 
     def initialize(*exceptions)
-      mensagens = exceptions.collect {|exception| exception.reply[2]}
+      mensagens = exceptions.collect {|exception|
+        hash = JSON.parse(exception.reply[2])
+        hash
+      }
       super(mensagens.to_json)
     end
 
@@ -833,9 +836,15 @@ module OMF::SFA::AM
         tds.each {|td| td.join}
       end
 
-      unless errors.empty?
+      if !errors.empty? and resource_descr[:policy] == "all-or-nothing"
         release_resources(resources, authorizer)
         raise CentralBrokerException.new(*errors)
+      elsif !errors.empty?
+        raise CentralBrokerException.new(*errors) if resources.empty?
+        resources[:errors] = errors.collect {|error|
+          hash = JSON.parse(error.reply[2])
+          hash['exception']['reason']
+        } unless errors.empty?
       end
 
       resources
@@ -852,6 +861,7 @@ module OMF::SFA::AM
     end
 
     def filter_resources_by_subauthority(resources, subauth)
+      resources = [resources] if resources.is_a? Hash
       selected_resources = resources.select {|resource|
         resource[:urn].include? subauth
       }
@@ -1308,8 +1318,9 @@ module OMF::SFA::AM
     end
 
     def check_error_messages(out)
-      if out.code.start_with? "4"
-        raise OMF::SFA::AM::Rest::NotAuthorizedException.new out.body
+      if out.code.start_with? "4" #to catch erros of type 400, 401, ...
+        hash = JSON.parse out.body
+        raise OMF::SFA::AM::Rest::NotAuthorizedException.new hash['exception']['reason']
       end
     end
 
