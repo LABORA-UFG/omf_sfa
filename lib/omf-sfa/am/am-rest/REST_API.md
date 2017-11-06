@@ -135,7 +135,7 @@ Link-Interfaces Connection
 
 To create a link between to interfaces, you need to make a PUT request like described bellow.
 
-* path: `/resources/interfaces/{interface-identifier}/links`, where *interface-identifier* can be the uuid, urn or name of the interface. For example: `resources/interfaces/fab56645-2d4c-466f-90f5-b93e8356bd54/links`
+* path: `/resources/interfaces/{interface-identifier}/links`, where *interface-identifier* can be the uuid, urn or name of the interface. For example: `/resources/interfaces/fab56645-2d4c-466f-90f5-b93e8356bd54/links`
 * method:
   * PUT: Connect a interface to a link
       * Body: Description of the Link in json format (you need to pass the link uuid, urn or its name). For example: 
