@@ -29,6 +29,7 @@ opts = {
 
 comm_type = nil
 resource_url = nil
+base_url = nil
 resource_type = :links
 op_mode = :development
 @flowvisor_rc_topic = nil
@@ -70,7 +71,8 @@ op.on '-c', '--conf FILE', "Configuration file with communication info" do |file
   if x = @y[:rest]
     require "net/https"
     require "uri"
-    resource_url = "https://#{x[:server]}:#{x[:port]}/resources/#{resource_type.to_s.downcase.pluralize}"
+    base_url = "https://#{x[:server]}:#{x[:port]}/resources/"
+    resource_url = "#{base_url}#{resource_type.to_s.downcase.pluralize}"
     comm_type = "REST"
   else
     error "REST details was found in the configuration file"
@@ -87,6 +89,46 @@ op.on '-c', '--conf FILE', "Configuration file with communication info" do |file
 end
 
 rest = op.parse(ARGV) || []
+
+def delete_resources_with_rest(url, res_desc, pem, key)
+  puts "Delete resource through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
+
+  uri = URI.parse(url)
+  pem = File.read(pem)
+  pkey = File.read(key)
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.use_ssl = true
+  http.cert = OpenSSL::X509::Certificate.new(pem)
+  http.key = OpenSSL::PKey::RSA.new(pkey)
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+  request = Net::HTTP::Delete.new(uri.request_uri, initheader = {'Content-Type' =>'application/json'})
+  request.body = res_desc.to_json
+
+  response = http.request(request)
+
+  JSON.parse(response.body)
+end
+
+def list_resources_with_rest(url, res_desc, pem, key)
+  puts "Create resource through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
+
+  uri = URI.parse(url)
+  pem = File.read(pem)
+  pkey = File.read(key)
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.use_ssl = true
+  http.cert = OpenSSL::X509::Certificate.new(pem)
+  http.key = OpenSSL::PKey::RSA.new(pkey)
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+  request = Net::HTTP::Get.new(uri.request_uri, initheader = {'Content-Type' =>'application/json'})
+  request.body = res_desc.to_json
+
+  response = http.request(request)
+
+  JSON.parse(response.body)["resource_response"]["resources"]
+end
 
 def create_resource_with_rest(url, res_desc, pem, key)
   puts "Create resource through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
@@ -127,9 +169,41 @@ OmfCommon.init(op_mode, opts) do |el|
 
         puts links
 
-        resource_properties = {
-            :name => "#{links[0][:dstDPID]}:#{links[1][:dstDPID]}",
-            :urn => "urn:publicid:IDN+ufg.br+link+#{links[0][:dstDPID]}:#{links[1][:dstDPID]}"
+        broker_links = list_resources_with_rest("#{base_url}/links", {}, @pem, @pkey)
+
+        puts "broker_links = #{broker_links}"
+
+        broker_links_names = broker_links.collect {|link| link["name"]}
+
+        resource_properties = []
+        link_names = []
+
+        links.each {|link|
+          link_name1 = "$fv-#{link[:srcDPID]}-#{link[:srcPort]}:#{link[:dstDPID]}-#{link[:dstPort]}"
+          link_name2 = "$fv-#{link[:dstDPID]}-#{link[:dstPort]}:#{link[:srcDPID]}-#{link[:srcPort]}"
+          link_names.push(link_name1)
+          link_names.push(link_name2)
+          next if broker_links_names.include?(link_name1)
+          next if broker_links_names.include?(link_name2)
+
+          new_link = {
+              :name => "#{link_name1}",
+              :urn => "urn:publicid:IDN+ufg.br+link+#{link_name1}"
+          }
+          resource_properties.push(new_link)
+        }
+
+        puts "RESOURCE PROPERTIES = #{resource_properties}"
+
+        deprecated_links = broker_links_names - link_names
+
+        # Remove old links
+        deprecated_links.each {|link_name|
+          next unless link_name.starts_with? "$fv-"
+          link_desc = {
+              :urn => "urn:publicid:IDN+ufg.br+link+#{link_name}"
+          }
+          delete_resources_with_rest("#{base_url}/links", link_desc, @pem, @pkey)
         }
 
         puts resource_properties.to_json
