@@ -86,43 +86,41 @@ experiments only on that channel. Channel information are being exposed thought 
       * `Body`: Description of the Channel to be deleted in json format (uuid or name is mandatory)
 
 
-Interfaces {#interfaces}
+Interfaces
 ---------
 
 * Description
 
-Channels can be all the frequency channels described in wireless protocols like 802.11. Channels are important 
-to experimenters because of interference with other experimenters. During an experiment (that involves wireless
-experimentation) every experimenter should have at least one reserved channel and should be conducting his 
-experiments only on that channel. Channel information are being exposed thought the methods bellow.
+A interface represent a physical interface of a machine (node, switch or USRP). Interfaces, together with Links(#links), are important to describe the connections between different elements of the testbed, showing the network topology. An interface has its owner machine (a node, a switch or a USRP device), a MAC address, a role, a description and possibily an IP address and a link. Interfaces information are being exposed thought the methods bellow.
 
-* `/resources/channels`
-  * GET: List Channels
+* `/resources/interfaces`
+  * GET: List Interfaces
       * `Parameters`
           * uuid: filter the results based on the universal unique id of the channel
+          * urn: filter the results based on the urn of the channel
           * name: filter the results based on the name of the channel
-          * if no parameters are provided all Channels are listed
-  * POST: Create a resource of type Channel
-      * `Body`: Description of the Channel to be created in json format
-  * PUT: Update a resource of type Channel
-      * `Body`: Description of the Channel to be updated in json format (uuid or name is mandatory)
-  * DELETE: Delete a resource of type Channel
-      * `Body`: Description of the Channel to be deleted in json format (uuid or name is mandatory)
+          * if no parameters are provided all Interfaces are listed
+  * POST: Create a resource of type Interface
+      * `Body`: Description of the Interface to be created in json format
+  * PUT: Update a resource of type Interface
+      * `Body`: Description of the Interface to be updated in json format (uuid or name is mandatory)
+  * DELETE: Delete a resource of type Interface
+      * `Body`: Description of the Interface to be deleted in json format (uuid or name is mandatory)
 
-Links {#links}
+Links
 ---------
 * Description
 
-A link is a physical connection between two interfaces that can be used to show the network topology of a testbed. A link is connected to two interfaces, which could be, for example, interfaces of nodes or switches. To connect a link to a interface, see the [Interfaces](#interfaces) documentation
+A link is a physical connection between two interfaces that can be used to show the network topology of a testbed. A link is connected to two interfaces, which could be, for example, interfaces of nodes or switches. Besides, a link has a link_type attribute, to describe the type of the link. To connect a link to a interface see the [Link-Interfaces Connection](#link-interfaces-connection) documentation
 All those information are being exposed thought the methods bellow.
 
 * path: `/resources/links`
 * methods:
-  * GET: List Nodes
+  * GET: List Links
       * Parameters
-          * uuid: filter the results based on the universal unique id of the node
-          * urn: filter the results based on the urn of the node
-          * name: filter the results based on the name of the node
+          * uuid: filter the results based on the universal unique id of the link
+          * urn: filter the results based on the urn of the link
+          * name: filter the results based on the name of the link
           * if no parameters are provided all Nodes are listed
   * POST: Create a resource of type Link
       * Body: Description of the Link to be created in json format (urn is mandatory)
@@ -131,6 +129,19 @@ All those information are being exposed thought the methods bellow.
   * DELETE: Delete a resource of type Link
       * Body: Description of the Link to be deleted in json format (uuid or name or urn is mandatory)
 
+Link-Interfaces Connection
+---------
+* Description
+
+To create a link between to interfaces, you need to make a PUT request like described bellow.
+
+* path: `/resources/interfaces/{interface-identifier}/links`, where *interface-identifier* can be the uuid, urn or name of the interface.
+* method:
+  * PUT: Connect a interface to a link
+      * Body: Description of the Link in json format (you need to pass the link uuid, urn or its name). For example: 
+         `{
+            "uuid": "link-urn"
+          }`
 
 Leases
 ---------
