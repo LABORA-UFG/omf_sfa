@@ -30,8 +30,8 @@ opts = {
 comm_type = nil
 resource_url = nil
 resource_type = :links
-flowvisor_rc_args = nil
 op_mode = :development
+@flowvisor_rc_topic = nil
 @authorization = false
 @entity = nil
 @trusted_roots = nil
@@ -51,9 +51,19 @@ op.on '-c', '--conf FILE', "Configuration file with communication info" do |file
   end
 
   if x = @y[:flowvisor_rc_args]
-    flowvisor_rc_args = x[:flowvisor_rc_args]
+    @flowvisor_rc_topic = x[:topic]
   else
     error "Flowvisor RC details was found in the configuration file"
+    exit
+  end
+
+  if x = @y[:amqp]
+    resource_url = x[:topic]
+    opts[:communication][:url] = "amqp://#{x[:username]}:#{x[:password]}@#{x[:server]}"
+    op_mode = x[:op_mode]
+    comm_type = "AMQP"
+  else
+    error "AMQP details was found in the configuration file"
     exit
   end
 
@@ -76,6 +86,8 @@ op.on '-c', '--conf FILE', "Configuration file with communication info" do |file
   end
 end
 
+rest = op.parse(ARGV) || []
+
 def create_resource_with_rest(url, res_desc, pem, key)
   puts "Create resource through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
 
@@ -97,6 +109,10 @@ def create_resource_with_rest(url, res_desc, pem, key)
   puts "#{response.inspect}"
 end
 
+def authorization?
+  @authorization
+end
+
 OmfCommon.init(op_mode, opts) do |el|
   OmfCommon.comm.on_connected do |comm|
     if authorization?
@@ -104,13 +120,23 @@ OmfCommon.init(op_mode, opts) do |el|
       @entity.resource_id = OmfCommon.comm.local_topic.address
       OmfCommon::Auth::CertificateStore.instance.register(@entity)
     end
-    comm.subscribe(flowvisor_rc_args[:topic]) do |flowvisor|
+    comm.subscribe(@flowvisor_rc_topic) do |flowvisor|
       flowvisor.request([:links]) do |msg|
         links = msg.properties[:links]
         info "Links requested: #{links}"
 
-        create_resource_with_rest(resource_url, resource_properties, @pem, @pkey)
+        puts links
 
+        resource_properties = {
+            :name => "#{links[0][:dstDPID]}:#{links[1][:dstDPID]}",
+            :urn => "urn:publicid:IDN+ufg.br+link+#{links[0][:dstDPID]}:#{links[1][:dstDPID]}"
+        }
+
+        puts resource_properties.to_json
+        #create_resource_with_rest(resource_url, resource_properties, @pem, @pkey)
+
+        puts 'done.'
+        comm.disconnect
       end
     end
   end

@@ -4,3 +4,11 @@
 :rest:
   :server: broker
   :port: 8001
+:amqp:
+  :server: 10.16.88.15
+  :username: testbed
+  :password: lab251
+  :topic: am_controller
+  :op_mode: development
+:flowvisor_rc_args:
+  :topic: "vinicius-fw"
