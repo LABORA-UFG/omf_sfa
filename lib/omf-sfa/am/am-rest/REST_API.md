@@ -85,6 +85,53 @@ experiments only on that channel. Channel information are being exposed thought 
   * DELETE: Delete a resource of type Channel
       * `Body`: Description of the Channel to be deleted in json format (uuid or name is mandatory)
 
+
+Interfaces {#interfaces}
+---------
+
+* Description
+
+Channels can be all the frequency channels described in wireless protocols like 802.11. Channels are important 
+to experimenters because of interference with other experimenters. During an experiment (that involves wireless
+experimentation) every experimenter should have at least one reserved channel and should be conducting his 
+experiments only on that channel. Channel information are being exposed thought the methods bellow.
+
+* `/resources/channels`
+  * GET: List Channels
+      * `Parameters`
+          * uuid: filter the results based on the universal unique id of the channel
+          * name: filter the results based on the name of the channel
+          * if no parameters are provided all Channels are listed
+  * POST: Create a resource of type Channel
+      * `Body`: Description of the Channel to be created in json format
+  * PUT: Update a resource of type Channel
+      * `Body`: Description of the Channel to be updated in json format (uuid or name is mandatory)
+  * DELETE: Delete a resource of type Channel
+      * `Body`: Description of the Channel to be deleted in json format (uuid or name is mandatory)
+
+Links {#links}
+---------
+* Description
+
+A link is a physical connection between two interfaces that can be used to show the network topology of a testbed. A link is connected to two interfaces, which could be, for example, interfaces of nodes or switches. To connect a link to a interface, see the [Interfaces](#interfaces) documentation
+All those information are being exposed thought the methods bellow.
+
+* path: `/resources/links`
+* methods:
+  * GET: List Nodes
+      * Parameters
+          * uuid: filter the results based on the universal unique id of the node
+          * urn: filter the results based on the urn of the node
+          * name: filter the results based on the name of the node
+          * if no parameters are provided all Nodes are listed
+  * POST: Create a resource of type Link
+      * Body: Description of the Link to be created in json format (urn is mandatory)
+  * PUT: Update a resource of type Link
+      * Body: Description of the Link to be updated in json format (uuid or name or urn is mandatory)
+  * DELETE: Delete a resource of type Link
+      * Body: Description of the Link to be deleted in json format (uuid or name or urn is mandatory)
+
+
 Leases
 ---------
 * Description
