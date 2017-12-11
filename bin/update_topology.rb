@@ -30,6 +30,7 @@ opts = {
 comm_type = nil
 resource_url = nil
 base_url = nil
+domain = nil
 resource_type = :links
 op_mode = :development
 @flowvisor_rc_topic = nil
@@ -71,8 +72,9 @@ op.on '-c', '--conf FILE', "Configuration file with communication info" do |file
   if x = @y[:rest]
     require "net/https"
     require "uri"
-    base_url = "https://#{x[:server]}:#{x[:port]}/resources/"
-    resource_url = "#{base_url}#{resource_type.to_s.downcase.pluralize}"
+    base_url = "https://#{x[:server]}:#{x[:port]}/resources"
+    domain = x[:domain]
+    resource_url = "#{base_url}/#{resource_type.to_s.downcase.pluralize}"
     comm_type = "REST"
   else
     error "REST details was found in the configuration file"
@@ -167,9 +169,7 @@ OmfCommon.init(op_mode, opts) do |el|
         links = msg.properties[:links]
         info "Links requested: #{links}"
 
-        puts links
-
-        broker_links = list_resources_with_rest("#{base_url}/links", {}, @pem, @pkey)
+        broker_links = list_resources_with_rest(resource_url, {}, @pem, @pkey)
 
         puts "broker_links = #{broker_links}"
 
@@ -183,12 +183,14 @@ OmfCommon.init(op_mode, opts) do |el|
           link_name2 = "$fv-#{link[:dstDPID]}-#{link[:dstPort]}:#{link[:srcDPID]}-#{link[:srcPort]}"
           link_names.push(link_name1)
           link_names.push(link_name2)
-          next if broker_links_names.include?(link_name1)
-          next if broker_links_names.include?(link_name2)
+
+          # Look for both links, because they are the same, just in opposite direction.
+          # If one of the links is registered, we go to the next.
+          next if broker_links_names.include?(link_name1) or broker_links_names.include?(link_name2)
 
           new_link = {
               :name => "#{link_name1}",
-              :urn => "urn:publicid:IDN+ufg.br+link+#{link_name1}"
+              :urn => "urn:publicid:IDN+#{domain}+link+#{link_name1}"
           }
           resource_properties.push(new_link)
         }
@@ -201,13 +203,14 @@ OmfCommon.init(op_mode, opts) do |el|
         deprecated_links.each {|link_name|
           next unless link_name.starts_with? "$fv-"
           link_desc = {
-              :urn => "urn:publicid:IDN+ufg.br+link+#{link_name}"
+              :urn => "urn:publicid:IDN+#{domain}+link+#{link_name}"
           }
           delete_resources_with_rest("#{base_url}/links", link_desc, @pem, @pkey)
         }
 
-        puts resource_properties.to_json
-        #create_resource_with_rest(resource_url, resource_properties, @pem, @pkey)
+        unless resource_properties.empty?
+          create_resource_with_rest(resource_url, resource_properties, @pem, @pkey)
+        end
 
         puts 'done.'
         comm.disconnect

@@ -4,6 +4,7 @@
 :rest:
   :server: broker
   :port: 8001
+  :domain: ufg.br
 :amqp:
   :server: 10.16.88.15
   :username: testbed
