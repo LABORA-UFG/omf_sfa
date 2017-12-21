@@ -31,6 +31,7 @@ comm_type = nil
 resource_url = nil
 base_url = nil
 domain = nil
+ch_key = nil
 resource_type = :links
 op_mode = :development
 @flowvisor_rc_topic = nil
@@ -76,6 +77,7 @@ op.on '-c', '--conf FILE', "Configuration file with communication info" do |file
     domain = x[:domain]
     resource_url = "#{base_url}/#{resource_type.to_s.downcase.pluralize}"
     comm_type = "REST"
+    ch_key = File.read(x[:ch_key])
   else
     error "REST details was found in the configuration file"
     exit
@@ -92,8 +94,8 @@ end
 
 rest = op.parse(ARGV) || []
 
-def delete_resources_with_rest(url, res_desc, pem, key)
-  puts "Delete resource through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
+def delete_resources_with_rest(url, res_desc, pem, key, ch_key)
+  puts "Delete links through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -105,6 +107,7 @@ def delete_resources_with_rest(url, res_desc, pem, key)
   http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
   request = Net::HTTP::Delete.new(uri.request_uri, initheader = {'Content-Type' =>'application/json'})
+  request['CH-Credential'] = ch_key
   request.body = res_desc.to_json
 
   response = http.request(request)
@@ -112,8 +115,8 @@ def delete_resources_with_rest(url, res_desc, pem, key)
   JSON.parse(response.body)
 end
 
-def list_resources_with_rest(url, res_desc, pem, key)
-  puts "Create resource through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
+def list_resources_with_rest(url, res_desc, pem, key, ch_key)
+  puts "List links through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -125,15 +128,18 @@ def list_resources_with_rest(url, res_desc, pem, key)
   http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
   request = Net::HTTP::Get.new(uri.request_uri, initheader = {'Content-Type' =>'application/json'})
+  request['CH-Credential'] = ch_key
   request.body = res_desc.to_json
 
   response = http.request(request)
 
-  JSON.parse(response.body)["resource_response"]["resources"]
+  body = JSON.parse(response.body)["resource_response"]
+  body = if body then body["resources"] else {} end
+  body
 end
 
-def create_resource_with_rest(url, res_desc, pem, key)
-  puts "Create resource through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
+def create_resource_with_rest(url, res_desc, pem, key, ch_key)
+  puts "Create links through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -145,6 +151,7 @@ def create_resource_with_rest(url, res_desc, pem, key)
   http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
   request = Net::HTTP::Post.new(uri.request_uri, initheader = {'Content-Type' =>'application/json'})
+  request['CH-Credential'] = ch_key
   request.body = res_desc.to_json
 
   response = http.request(request)
@@ -166,10 +173,10 @@ OmfCommon.init(op_mode, opts) do |el|
     end
     comm.subscribe(@flowvisor_rc_topic) do |flowvisor|
       flowvisor.request([:links]) do |msg|
-        links = msg.properties[:links]
+        links = if msg.properties[:links] then msg.properties[:links] else [] end
         info "Links requested: #{links}"
 
-        broker_links = list_resources_with_rest(resource_url, {}, @pem, @pkey)
+        broker_links = list_resources_with_rest(resource_url, {}, @pem, @pkey, ch_key)
 
         puts "broker_links = #{broker_links}"
 
@@ -205,11 +212,11 @@ OmfCommon.init(op_mode, opts) do |el|
           link_desc = {
               :urn => "urn:publicid:IDN+#{domain}+link+#{link_name}"
           }
-          delete_resources_with_rest("#{base_url}/links", link_desc, @pem, @pkey)
+          delete_resources_with_rest("#{base_url}/links", link_desc, @pem, @pkey, ch_key)
         }
 
         unless resource_properties.empty?
-          create_resource_with_rest(resource_url, resource_properties, @pem, @pkey)
+          create_resource_with_rest(resource_url, resource_properties, @pem, @pkey, ch_key)
         end
 
         puts 'done.'
