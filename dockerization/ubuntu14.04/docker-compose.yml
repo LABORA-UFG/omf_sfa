@@ -6,8 +6,8 @@ services:
         image: broker
         container_name: broker
         links:
-            - pubsub
-#            - gcf-omni
+#            - pubsub
+            - gcf-omni
 #            - ec
         ports:
             - "8001:8001"
@@ -39,22 +39,22 @@ services:
         #command: chmod -v -R 600 /var/lib/rabbitmq/
         env_file: rabbitmq.env
 
-#    gcf-omni:
-#        build: ../omni
-#        image: gcf-omni
-#        container_name: gcf-omni
-#        hostname: gcf
-#        ports:
-#            - 8000:8000
-#        entrypoint: /root/gcf/src/gcf-ch.py
+    gcf-omni:
+        build: ../omni
+        image: gcf-omni
+        container_name: gcf-omni
+        hostname: gcf
+        ports:
+            - 8000:8000
+        entrypoint: /root/gcf/src/gcf-ch.py
 #
-#    ec:
-#        build: ../ec
-#        image: ec
-#        container_name: ec
-#        hostname: ec
-#        links:
-#          - pubsub
-#        ports:
-#            - 8000:8000
-#        entrypoint: /usr/bin/entrypoint.sh
+    ec:
+        build: ../ec
+        image: ec
+        container_name: ec
+        hostname: ec
+        links:
+          - pubsub
+        ports:
+            - 8000:8000
+        entrypoint: /usr/bin/entrypoint.sh
