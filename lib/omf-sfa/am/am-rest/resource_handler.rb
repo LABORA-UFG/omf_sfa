@@ -81,7 +81,9 @@ module OMF::SFA::AM::Rest
           acc_desc[:uuid] = resource_params.delete(:account_uuid) if resource_params[:account_uuid]
           account = @am_manager.find_account(acc_desc, authenticator) unless acc_desc.empty?
 
-          resource =  @am_manager.find_all_leases(account, status_types, authenticator)
+          start = resource_params[:start] unless resource_params[:start].nil?
+
+          resource =  @am_manager.find_all_leases(account, status_types, authenticator, start)
           return show_resource(resource, opts)
         end
         descr = {}

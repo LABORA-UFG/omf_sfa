@@ -282,12 +282,21 @@ module OMF::SFA::AM
     # @param [Authorizer] Authorization context
     # @return [Lease] The requested leases
     #
-    def find_all_leases(account = nil, status = ['pending', 'accepted', 'active', 'past', 'cancelled'], authorizer)
+    def find_all_leases(account = nil, status = ['pending', 'accepted', 'active', 'past', 'cancelled'], authorizer=nil, period=nil)
       debug "find_all_leases: account: #{account.inspect} status: #{status}"
+      #valid_until
       if account.nil?
-        leases = OMF::SFA::Model::Lease.where(status: status)
+        if period.nil?
+          leases = OMF::SFA::Model::Lease.where(status: status)
+        else
+          leases = OMF::SFA::Model::Lease.where(status: status){valid_until > period}
+        end
       else
-        leases = OMF::SFA::Model::Lease.where(account_id: account.id, status: status)
+        if period.nil?
+          leases = OMF::SFA::Model::Lease.where(account_id: account.id, status: status)
+        else
+          leases = OMF::SFA::Model::Lease.where(account_id: account.id, status: status){valid_until > period}
+        end
       end
       leases.map do |l|
         begin
