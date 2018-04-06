@@ -24,7 +24,6 @@ module OMF::SFA::Model
 
     def self.exclude_from_json
       sup = super
-      [:disk_image_id].concat(sup)
     end
   end
 end

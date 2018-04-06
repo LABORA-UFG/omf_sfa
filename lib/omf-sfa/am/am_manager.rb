@@ -235,45 +235,45 @@ module OMF::SFA::AM
 
     ### LEASES: creating, finding, and releasing leases
 
-    # Return the lease described by +lease_descr+.
+    # # Return the lease described by +lease_descr+.
+    # #
+    # # @param [Hash] properties of lease
+    # # @param [Authorizer] Defines context for authorization decisions
+    # # @return [Lease] The requested lease
+    # # @raise [UnknownResourceException] if requested lease cannot be found
+    # # @raise [InsufficientPrivilegesException] if permission is not granted
+    # #
+    # def find_lease(lease_descr, authorizer)
+    #   unless lease = OMF::SFA::Model::Lease.first(lease_descr)
+    #     raise UnavailableResourceException.new "Unknown lease '#{lease_descr.inspect}'"
+    #   end
+    #   raise InsufficientPrivilegesException unless authorizer.can_view_lease?(lease)
+    #   lease
+    # end
     #
-    # @param [Hash] properties of lease
-    # @param [Authorizer] Defines context for authorization decisions
-    # @return [Lease] The requested lease
-    # @raise [UnknownResourceException] if requested lease cannot be found
-    # @raise [InsufficientPrivilegesException] if permission is not granted
+    # # Return the lease described by +lease_descr+. Create if it doesn't exist.
+    # #
+    # # @param [Hash] lease_descr properties of lease
+    # # @param [Authorizer] Defines context for authorization decisions
+    # # @return [Lease] The requested lease
+    # # @raise [UnknownResourceException] if requested lease cannot be created
+    # # @raise [InsufficientPrivilegesException] if permission is not granted
+    # #
+    # def find_or_create_lease(lease_descr, authorizer)
+    #   debug "find_or_create_lease: '#{lease_descr.inspect}'"
+    #   begin
+    #     return find_lease(lease_descr, authorizer)
+    #   rescue UnavailableResourceException
+    #   end
+    #   raise InsufficientPrivilegesException unless authorizer.can_create_resource?(lease_descr, 'lease')
+    #   lease = OMF::SFA::Model::Lease.create(lease_descr)
     #
-    def find_lease(lease_descr, authorizer)
-      unless lease = OMF::SFA::Model::Lease.first(lease_descr)
-        raise UnavailableResourceException.new "Unknown lease '#{lease_descr.inspect}'"
-      end
-      raise InsufficientPrivilegesException unless authorizer.can_view_lease?(lease)
-      lease
-    end
-
-    # Return the lease described by +lease_descr+. Create if it doesn't exist.
-    #
-    # @param [Hash] lease_descr properties of lease
-    # @param [Authorizer] Defines context for authorization decisions
-    # @return [Lease] The requested lease
-    # @raise [UnknownResourceException] if requested lease cannot be created
-    # @raise [InsufficientPrivilegesException] if permission is not granted
-    #
-    def find_or_create_lease(lease_descr, authorizer)
-      debug "find_or_create_lease: '#{lease_descr.inspect}'"
-      begin
-        return find_lease(lease_descr, authorizer)
-      rescue UnavailableResourceException
-      end
-      raise InsufficientPrivilegesException unless authorizer.can_create_resource?(lease_descr, 'lease')
-      lease = OMF::SFA::Model::Lease.create(lease_descr)
-
-      raise UnavailableResourceException.new "Cannot create '#{lease_descr.inspect}'" unless lease
-      @scheduler.add_lease_events_on_event_scheduler(lease)
-      @scheduler.list_all_event_scheduler_jobs #debug messages only
-      lease
-      # lease = create_resource(lease_descr, 'Lease', lease_properties, authorizer)
-    end
+    #   raise UnavailableResourceException.new "Cannot create '#{lease_descr.inspect}'" unless lease
+    #   @scheduler.add_lease_events_on_event_scheduler(lease)
+    #   @scheduler.list_all_event_scheduler_jobs #debug messages only
+    #   lease
+    #   # lease = create_resource(lease_descr, 'Lease', lease_properties, authorizer)
+    # end
 
     # Find al leases if no +account+ and +status+ is given
     #
@@ -684,112 +684,47 @@ module OMF::SFA::AM
 
       debug "Resource '#{type_to_create}' doesn't have the handle_rest_resource_creation method, proceeding with the default creation proccess..."
 
-      if type_to_create == "Lease" #Lease is a unique case, needs special treatment
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute account is mandatory." if resource_descr[:account].nil? && resource_descr[:account_attributes].nil?
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute components is mandatory." if (resource_descr[:components].nil? || resource_descr[:components].empty?) && (resource_descr[:components_attributes].nil? || resource_descr[:components_attributes].empty?)
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Attributes valid_from and valid_until are mandatory." if resource_descr[:valid_from].nil? || resource_descr[:valid_until].nil?
+      resource = nil
+      if resource_descr.kind_of? Array
+        descr = []
+        resource_descr.each do |res|
+          res_descr = {}
+          res_descr.merge!({uuid: res[:uuid]}) if res.has_key?(:uuid)
+          res_descr.merge!({name: res[:name]}) if res.has_key?(:name)
+          descr << res_descr unless eval("OMF::SFA::Model::#{type_to_create}").first(res_descr)
+        end
+        raise OMF::SFA::AM::Rest::BadRequestException.new "No resources described in description #{resource_descr} is valid. Maybe all the resources alreadt=y exist." if descr.empty?
+      elsif resource_descr.kind_of? Hash
+        descr = {}
+        descr.merge!({uuid: resource_descr[:uuid]}) if resource_descr.has_key?(:uuid)
+        descr.merge!({name: resource_descr[:name]}) if resource_descr.has_key?(:name)
+        descr.merge!({urn: resource_descr[:urn]}) if resource_descr.has_key?(:urn)
 
-        res_descr = {}
-        res_descr[:name] = resource_descr[:name]
-        res_descr[:valid_from] = resource_descr[:valid_from]
-        res_descr[:valid_until] = resource_descr[:valid_until]
-        ac_desc = resource_descr[:account] || resource_descr[:account_attributes]
-        ac = OMF::SFA::Model::Account.first(ac_desc)
-        # ac = @am_manager.find_or_create_account(ac_desc, authorizer)
-        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Account with description '#{ac_desc}' does not exist." if ac.nil?
-        raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Account with description '#{ac_desc}' is closed." unless ac.active?
-        if ac.kind_of? OMF::SFA::Model::Account
-          res_descr[:account_id] = ac.id
+        if descr.empty?
+          raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is '#{resource_descr}'."
         else
-          res_descr[:account] = {}
-          res_descr[:account][:urn] = ac[:urn]
+          raise OMF::SFA::AM::Rest::BadRequestException.new "Resource with descr '#{descr} already exists'." if eval("OMF::SFA::Model::#{type_to_create}").first(descr)
         end
-        lease = find_or_create_lease(res_descr, authorizer)
+      end
 
-        comps = resource_descr[:components] || resource_descr[:components_attributes]
-        nil_account_id = _get_nil_account.id
-
-        not_founded_components = []
-        components = []
-        comps.each do |c|
-          desc = {}
-          desc[:account_id] = nil_account_id
-          desc[:uuid] = c[:uuid] unless c[:uuid].nil?
-          desc[:name] = c[:name] unless c[:name].nil?
-          desc[:urn] = c[:urn] unless c[:urn].nil?
-
-          not_founded_components.push(c[:uuid])
-          not_founded_components.push(c[:name])
-          not_founded_components.push(c[:urn])
-
-          if k = OMF::SFA::Model::Resource.first(desc)
-            k[:sliver_infos] = c[:sliver_infos] unless c[:sliver_infos].nil?
-            components << k
-            not_founded_components.delete(c[:uuid])
-            not_founded_components.delete(c[:name])
-            not_founded_components.delete(c[:urn])
-          end
-        end
-
-        unless not_founded_components.empty?
-          not_founded_components.compact! # removing nils
-          raise UnknownResourceException.new "You are trying to reserve unknown resources." \
-                            "Resources with the following identifiers were not found: #{not_founded_components.to_s.gsub('"', '')}"
-        end
-
-        scheduler = get_scheduler
-        comps = []
-        components.each do |comp|
-          comps << c = scheduler.create_child_resource({uuid: comp.uuid, account_id: ac.id}, comp[:type].to_s.split('::').last, comp[:sliver_infos])
-          unless scheduler.lease_component(lease, c)
-            scheduler.delete_lease(lease)
-            release_resources(comps, authorizer)
-            raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Reservation for the resource '#{c.urn}' failed. The resource is either unavailable or a policy quota has been exceeded."
-          end
-        end
-        resource = lease
-      else
-        if resource_descr.kind_of? Array
-          descr = []
-          resource_descr.each do |res|
-            res_descr = {}
-            res_descr.merge!({uuid: res[:uuid]}) if res.has_key?(:uuid)
-            res_descr.merge!({name: res[:name]}) if res.has_key?(:name)
-            descr << res_descr unless eval("OMF::SFA::Model::#{type_to_create}").first(res_descr)
-          end
-          raise OMF::SFA::AM::Rest::BadRequestException.new "No resources described in description #{resource_descr} is valid. Maybe all the resources alreadt=y exist." if descr.empty?
-        elsif resource_descr.kind_of? Hash
-          descr = {}
-          descr.merge!({uuid: resource_descr[:uuid]}) if resource_descr.has_key?(:uuid)
-          descr.merge!({name: resource_descr[:name]}) if resource_descr.has_key?(:name)
-          descr.merge!({urn: resource_descr[:urn]}) if resource_descr.has_key?(:urn)
-
-          if descr.empty?
-            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is '#{resource_descr}'."
-          else
-            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource with descr '#{descr} already exists'." if eval("OMF::SFA::Model::#{type_to_create}").first(descr)
-          end
-        end
-
-        if resource_descr.kind_of? Array
-          resource = []
-          resource_descr.each do |res_desc|
-            resource << eval("OMF::SFA::Model::#{type_to_create}").create(res_desc)
-            manage_resource(resource.last) if resource.last.account.nil?
-            if type_to_create == 'Account'
-              @liaison.create_account(resource.last)
-            end
-          end
-        elsif resource_descr.kind_of? Hash
-          begin
-            resource = eval("OMF::SFA::Model::#{type_to_create}").create(resource_descr)
-          rescue => ex
-            raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is invalid: #{ex.to_s}"
-          end
-          manage_resource(resource) if resource.class.can_be_managed?
+      if resource_descr.kind_of? Array
+        resource = []
+        resource_descr.each do |res_desc|
+          resource << eval("OMF::SFA::Model::#{type_to_create}").create(res_desc)
+          manage_resource(resource.last) if resource.last.account.nil?
           if type_to_create == 'Account'
-            liaison.create_account(resource)
+            @liaison.create_account(resource.last)
           end
+        end
+      elsif resource_descr.kind_of? Hash
+        begin
+          resource = eval("OMF::SFA::Model::#{type_to_create}").create(resource_descr)
+        rescue => ex
+          raise OMF::SFA::AM::Rest::BadRequestException.new "Resource description is invalid: #{ex.to_s}"
+        end
+        manage_resource(resource) if resource.class.can_be_managed?
+        if type_to_create == 'Account'
+          liaison.create_account(resource)
         end
       end
       resource
@@ -1132,7 +1067,7 @@ module OMF::SFA::AM
 
       begin
         raise UnavailableResourceException unless UUID.validate(lease_el[:id])
-        lease = find_lease({:uuid => lease_el[:id]}, authorizer)
+        lease =  OMF::SFA::Model::Lease.find_lease({:uuid => lease_el[:id]}, authorizer)
         # if lease.valid_from != lease_properties[:valid_from] || lease.valid_until != lease_properties[:valid_until]
         #   lease = modify_lease(lease_properties, lease, authorizer)
         #   return { lease_el[:id] => lease }
@@ -1142,7 +1077,7 @@ module OMF::SFA::AM
         return { lease_el[:id] => lease }
       rescue UnavailableResourceException
         lease_descr = {account_id: authorizer.account.id, valid_from: lease_el[:valid_from], valid_until: lease_el[:valid_until]}
-        lease = find_or_create_lease(lease_descr, authorizer)
+        lease = OMF::SFA::Model::Lease.find_or_create_lease(lease_descr, authorizer, get_scheduler)
         lease.client_id = lease_el[:client_id]
         lease.save
         return { (lease_el[:client_id] || lease_el[:id]) => lease }
