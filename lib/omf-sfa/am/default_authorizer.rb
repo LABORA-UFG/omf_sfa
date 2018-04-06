@@ -30,6 +30,8 @@ module OMF::SFA::AM
       :can_view_lease?, # (lease)
       :can_modify_lease?, # (lease)
       :can_release_lease?, # (lease)
+      # SLICES
+      :can_operate_slice?,
     ].each do |m|
       define_method(m) do |*args|
         debug "Check permission '#{m}'"

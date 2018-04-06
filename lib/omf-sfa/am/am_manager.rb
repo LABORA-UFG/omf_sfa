@@ -474,8 +474,9 @@ module OMF::SFA::AM
       else
         raise FormatException.new "Unknown resource description type '#{resource_descr.class}' (#{resource_descr})"
       end
-      raise UnknownResourceException.new "Resource '#{resource_descr.inspect}' is not available or doesn't exist" if resources.nil? || resources.empty?
 
+      # raise UnknownResourceException.new "Resource '#{resource_descr.inspect}' is not available or doesn't exist" if resources.nil? || resources.empty?
+      raise UnknownResourceException.new "Resource '#{resource_descr.inspect}' is not available or doesn't exist" if resources.nil?
 
       resources.map do |r|
         begin
@@ -670,7 +671,20 @@ module OMF::SFA::AM
       debug "create_new_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
       authorizer.can_create_resource?(resource_descr, type_to_create)
 
-      if type_to_create == "Lease" #Lease is a unigue case, needs special treatment
+      # New resource creation method, pass through the model
+      begin
+        model_obj = eval("OMF::SFA::Model::#{type_to_create}")
+        if model_obj.respond_to?(:handle_rest_resource_creation)
+          resource = model_obj.handle_rest_resource_creation(resource_descr, authorizer, get_scheduler)
+          return resource
+        end
+      rescue => ex
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Resource type not exists: '#{type_to_create}'"
+      end
+
+      debug "Resource '#{type_to_create}' doesn't have the handle_rest_resource_creation method, proceeding with the default creation proccess..."
+
+      if type_to_create == "Lease" #Lease is a unique case, needs special treatment
         raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute account is mandatory." if resource_descr[:account].nil? && resource_descr[:account_attributes].nil?
         raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute components is mandatory." if (resource_descr[:components].nil? || resource_descr[:components].empty?) && (resource_descr[:components_attributes].nil? || resource_descr[:components_attributes].empty?)
         raise OMF::SFA::AM::Rest::BadRequestException.new "Attributes valid_from and valid_until are mandatory." if resource_descr[:valid_from].nil? || resource_descr[:valid_until].nil?

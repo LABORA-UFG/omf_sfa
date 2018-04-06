@@ -161,8 +161,10 @@ module OMF::SFA::AM::Rest
         resource = @am_manager.update_resources_from_xml(body.root, clean_state, opts)
       when :json
         if clean_state
+          # Handle PUT request
           resource = update_a_resource(body, resource_type, authenticator)
         else
+          # Handle POST request
           resource = @am_manager.create_new_resource(body, resource_type, authenticator)
         end
       else
@@ -287,6 +289,19 @@ module OMF::SFA::AM::Rest
     # @raise [UnknownResourceException] if no resource can be created
     #
     def update_a_resource(resource_descr, type_to_create, authorizer)
+      # New resource update method, pass through the model
+      begin
+        model_obj = eval("OMF::SFA::Model::#{type_to_create}")
+        if model_obj.respond_to?(:handle_rest_resource_update)
+          resource = model_obj.handle_rest_resource_update(resource_descr, authorizer, @am_manager.get_scheduler)
+          return resource
+        end
+      rescue => ex
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Resource type not exists: '#{type_to_create}'"
+      end
+
+      debug "Resource '#{type_to_create}' doesn't have the handle_rest_resource_update method, proceeding with the default update proccess..."
+
       descr = {}
       descr.merge!({uuid: resource_descr[:uuid]}) if resource_descr.has_key?(:uuid)
       descr.merge!({name: resource_descr[:name]}) if descr[:uuid].nil? && resource_descr.has_key?(:name)
@@ -325,6 +340,19 @@ module OMF::SFA::AM::Rest
     # @raise [UnknownResourceException] if no resource can be created
     #
     def release_resource(resource_descr, type_to_release, authorizer)
+      # New resource release method, pass through the model
+      begin
+        model_obj = eval("OMF::SFA::Model::#{type_to_release}")
+        if model_obj.respond_to?(:handle_rest_resource_release)
+          resource = model_obj.handle_rest_resource_release(resource_descr, authorizer, @am_manager.get_scheduler)
+          return resource
+        end
+      rescue => ex
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Resource type not exists: '#{type_to_release}'"
+      end
+
+      debug "Resource '#{type_to_release}' doesn't have the handle_rest_resource_release method, proceeding with the default release proccess..."
+
       if type_to_release == "Lease" #Lease is a unigue case, needs special treatment
         if resource = OMF::SFA::Model::Lease.first(resource_descr)
           @am_manager.release_lease(resource, authorizer)

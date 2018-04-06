@@ -35,7 +35,9 @@ module OMF::SFA::AM::Rest::DummyAuth
           # LEASE
           can_view_lease?:       true,
           can_modify_lease?:     true,
-          can_release_lease?:    true
+          can_release_lease?:    true,
+          # SLICE
+          can_operate_slice?:    true
       }
     end
   end # class

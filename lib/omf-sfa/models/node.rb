@@ -73,5 +73,24 @@ module OMF::SFA::Model
     def self.can_be_managed?
       true
     end
+
+    # def to_hash
+    #   self.to_hash_brief
+    # end
+
+    def to_hash_brief
+      value = super
+      if self.respond_to?(:sliver_type) && !self.sliver_type.nil?
+        value = {
+            :hypervisor => self.urn,
+            :name => self.sliver_type.label,
+            :cpu_cores => self.sliver_type.cpu_cores,
+            :ram_in_mb => self.sliver_type.ram_in_mb,
+            :disk_image => self.sliver_type.disk_image.urn,
+            :resource_type => self.sliver_type.name
+        }
+      end
+      value
+    end
   end
 end
