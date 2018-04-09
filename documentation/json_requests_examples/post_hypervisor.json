@@ -1,0 +1,21 @@
+{
+  "name": "omf.ufrj.xen",
+  "hostname": "xen-leme",
+  "urn": "urn:publicid:IDN+ufrj.br+node+xen",
+  "domain": "ufrj.br",
+  "gateway": "ufrj.br",
+  "exclusive": false,
+  "ram": "32768",
+  "ram_type": "ddr3",
+  "cpus_attributes": [
+    {
+      "name": "Intel(R) Xeon(R) CPU E5645 @2.40GHz",
+      "urn": "urn:publicid:IDN+ufrj.br+cpu+Intel(R) Xeon(R) CPU E5645 @2.40GHz",
+      "cpu_type": "Intel(R) Xeon(R) CPU E5645 @2.40GHz",
+      "cores": 24,
+      "threads": 48,
+      "cache_l1": "32K",
+      "cache_l2": "256K"
+    }
+  ]
+}
