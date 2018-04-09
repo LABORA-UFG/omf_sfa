@@ -10,7 +10,10 @@ if ! $(gem list -i sqlite3); then
     bundle install
 
     echo "###############RAKE DB:MIGRATE###############"
+    gem uninstall rake --version 12.0.0
+    gem install rake --version 10.4.2
     rake db:migrate
+    gem install rake --version 12.0.0
 
     echo "###############CREATING DEFAULT SSH KEY###############"
     ssh-keygen -b 2048 -t rsa -f /root/.ssh/id_rsa -q -N ""
@@ -70,7 +73,8 @@ fi
 
 run_broker() {
     cd /root/omf_sfa
-    bundle exec ruby -I lib /root/omf_sfa/lib/omf-sfa/am/am_server.rb start &> /var/log/omf-sfa.log &
+#    bundle exec ruby -I lib /root/omf_sfa/lib/omf-sfa/am/am_server.rb start &> /var/log/omf-sfa.log &
+    ruby -I lib /root/omf_sfa/lib/omf-sfa/am/am_server.rb start &> /var/log/omf-sfa.log &
 }
 
 debug_broker() {

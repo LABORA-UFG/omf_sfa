@@ -147,6 +147,13 @@ module OMF::SFA::AM::Rest::FibreAuth
       raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to release this lease')
     end
 
+    # Slice authorization
+    def can_operate_slice?(account)
+      debug "Check permission 'can_operate_slice?' (#{account.urn == @account_urn}, #{@permissions[:can_operate_slice?]})"
+      return true if (account.urn == @account_urn && @permissions[:can_operate_slice?])
+      raise OMF::SFA::AM::InsufficientPrivilegesException.new('You have no permission to operate this slice')
+    end
+
     protected
 
     def initialize(account_urn, user, credential, am_manager, ch_key)
@@ -212,6 +219,8 @@ module OMF::SFA::AM::Rest::FibreAuth
           can_view_lease?:       (all_privileges || credential.privilege?('info')),
           can_modify_lease?:     (is_slice_cred && (all_privileges || credential.privilege?('refresh'))),
           can_release_lease?:    (is_slice_cred && (all_privileges || credential.privilege?('refresh'))),
+          # SLICE
+          can_operate_slice?:    (is_slice_cred && (all_privileges || credential.privilege?('control'))),
       }
     end
 

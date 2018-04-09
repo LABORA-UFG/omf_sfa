@@ -118,7 +118,7 @@ module OMF::SFA::AM
       rescue UnknownResourceException
       end
 
-      raise UnknownResourceException.new "Resource '#{resource_descr.inspect}' is not available or doesn't exist"      
+      raise UnknownResourceException.new "Resource '#{resource_descr.inspect}' is not available or doesn't exist"
     end
     
     # Update the resources described in +resource_el+. Any resource not already assigned to the

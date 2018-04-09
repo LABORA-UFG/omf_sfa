@@ -6,7 +6,8 @@ require "uuidtools"
 module OMF::SFA::Model
 
   class Resource < Sequel::Model
-    plugin :class_table_inheritance
+    # plugin :class_table_inheritance
+    plugin :class_table_inheritance, :key=>:type, :alias=>self.class.name.split('::').last || ''
     many_to_one :account
 
     plugin :nested_attributes
@@ -108,7 +109,7 @@ module OMF::SFA::Model
   end #Class
 end #OMF::SFA
 
-OMF::SFA::Model::Resource.plugin :class_table_inheritance, :key=>:type
+# OMF::SFA::Model::Resource.plugin :class_table_inheritance, :key=>:type
 
 class Array
   def to_json(options = {})
