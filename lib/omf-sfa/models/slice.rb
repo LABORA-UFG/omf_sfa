@@ -166,9 +166,25 @@ module OMF::SFA::Model
         end
 
         # Validate other resource types
-        raise "Invalid resource: #{slice_resource}" if slice_resource[:type].nil? or slice_resource[:urn].nil?
-        resource_obj = OMF::SFA::Model::Resource.first({:urn => slice_resource[:urn], :account_id => default_account_id})
-        raise "Resource #{slice_resource[:urn]} not exists" unless resource_obj
+        raise "Invalid resource: #{slice_resource}" if slice_resource[:type].nil? or (slice_resource[:urn].nil? &&
+            slice_resource[:uuid].nil? && slice_resource[:name].nil?)
+
+        # Search resource
+        resource_obj = nil
+        if slice_resource[:urn]
+          resource_obj = OMF::SFA::Model::Resource.where({:urn => slice_resource[:urn], :account_id => default_account_id})
+        end
+        if slice_resource[:uuid]
+          resource_obj = resource_obj.or({:uuid => slice_resource[:uuid], :account_id => default_account_id}) unless resource_obj.nil?
+          resource_obj = OMF::SFA::Model::Resource.where({:uuid => slice_resource[:uuid], :account_id => default_account_id}) unless resource_obj
+        end
+        if slice_resource[:name]
+          resource_obj = resource_obj.or({:name => slice_resource[:name], :account_id => default_account_id}) unless resource_obj.nil?
+          resource_obj = OMF::SFA::Model::Resource.where({:name => slice_resource[:name], :account_id => default_account_id}) unless resource_obj
+        end
+
+        resource_obj = resource_obj.first unless resource_obj.nil?
+        raise "Resource #{slice_resource} not exists" unless resource_obj
         slice_model_resources << resource_obj
       end
 
@@ -207,6 +223,7 @@ module OMF::SFA::Model
           sliver_type_vm = scheduler.create_child_resource(res_desc, hypervisor_type, sliver_info)
           slice.add_component(sliver_type_vm)
         rescue => ex
+          remove_components_of_slice(slice)
           raise OMF::SFA::AM::Rest::BadRequestException.new "#{ex.to_s}"
         end
       end
