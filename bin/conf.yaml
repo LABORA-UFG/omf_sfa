@@ -4,3 +4,15 @@
 :rest:
   :server: broker
   :port: 8001
+  :domain: ufg.br
+  :ch_key: /root/.omf/ch_key.key
+:amqp:
+  :server: 192.168.1.9
+  :username: testbed
+  :password: lab251
+  :topic: am_controller
+  :op_mode: development
+:flowvisor_rc_args:
+  :topic: "vinicius-fw"
+:images_cleaner:
+  :days: 7
