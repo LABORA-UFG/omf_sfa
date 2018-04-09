@@ -137,9 +137,9 @@ module OMF::SFA::Model
     # Validates the resources passed in the POST/PUT method to create/edit the slice
     #
     def self.validate_slice_resources(resources, default_account_id)
-      # Validate resources
       slice_model_resources = []
       vms = []
+      not_found_resources = []
       resources.each do |slice_resource|
         # Virtual machine validation is different...
         if slice_resource[:type] == 'virtual_machine'
@@ -147,12 +147,18 @@ module OMF::SFA::Model
           raise "Invalid VM resource: #{slice_resource}" unless
               [:type, :hypervisor, :name, :cpu_cores, :ram_in_mb, :disk_image].all? { |s| slice_resource.key? s }
 
-          # Check if hypervisor and disk images is available
+          # Check if hypervisor and disk images is available, if not, skip VM addition...
           hypervisor = OMF::SFA::Model::Node.first({:urn => slice_resource[:hypervisor], :account_id => default_account_id})
           disk_image = OMF::SFA::Model::DiskImage.first({:urn => slice_resource[:disk_image]})
 
-          raise "Hypervisor not found: #{slice_resource[:hypervisor]}" unless hypervisor
-          raise "Disk image not found: #{slice_resource[:disk_image]}" unless disk_image
+          unless hypervisor
+            not_found_resources << slice_resource[:hypervisor]
+            next
+          end
+          unless disk_image
+            not_found_resources << slice_resource[:disk_image]
+            next
+          end
 
           # Add vm in the creation list
           vms << {
@@ -184,11 +190,15 @@ module OMF::SFA::Model
         end
 
         resource_obj = resource_obj.first unless resource_obj.nil?
-        raise "Resource #{slice_resource} not exists" unless resource_obj
+        # Skip resource addition if resource does not exists.
+        unless resource_obj
+          not_found_resources << slice_resource
+          next
+        end
         slice_model_resources << resource_obj
       end
 
-      return slice_model_resources, vms
+      return slice_model_resources, vms, not_found_resources
     end
 
     ##
