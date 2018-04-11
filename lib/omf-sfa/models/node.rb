@@ -92,6 +92,9 @@ module OMF::SFA::Model
         value[:ram_in_mb] = self.sliver_type.ram_in_mb if self.sliver_type.ram_in_mb
         value[:disk_image] = self.sliver_type.disk_image.urn if self.sliver_type.disk_image
         value[:resource_type] = self.sliver_type.name if self.sliver_type.name
+        value[:status] = self.sliver_type.status if self.sliver_type.status
+        value[:ip_address] = self.sliver_type.ip_address if self.sliver_type.ip_address
+        value[:mac_address] = self.sliver_type.mac_address if self.sliver_type.mac_address
       end
       value
     end

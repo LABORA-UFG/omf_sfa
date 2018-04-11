@@ -137,9 +137,9 @@ module OMF::SFA::Model
     # Validates the resources passed in the POST/PUT method to create/edit the slice
     #
     def self.validate_slice_resources(resources, default_account_id)
-      # Validate resources
       slice_model_resources = []
       vms = []
+      not_found_resources = []
       resources.each do |slice_resource|
         # Virtual machine validation is different...
         if slice_resource[:type] == 'virtual_machine'
@@ -147,12 +147,18 @@ module OMF::SFA::Model
           raise "Invalid VM resource: #{slice_resource}" unless
               [:type, :hypervisor, :name, :cpu_cores, :ram_in_mb, :disk_image].all? { |s| slice_resource.key? s }
 
-          # Check if hypervisor and disk images is available
+          # Check if hypervisor and disk images is available, if not, skip VM addition...
           hypervisor = OMF::SFA::Model::Node.first({:urn => slice_resource[:hypervisor], :account_id => default_account_id})
           disk_image = OMF::SFA::Model::DiskImage.first({:urn => slice_resource[:disk_image]})
 
-          raise "Hypervisor not found: #{slice_resource[:hypervisor]}" unless hypervisor
-          raise "Disk image not found: #{slice_resource[:disk_image]}" unless disk_image
+          unless hypervisor
+            not_found_resources << slice_resource[:hypervisor]
+            next
+          end
+          unless disk_image
+            not_found_resources << slice_resource[:disk_image]
+            next
+          end
 
           # Add vm in the creation list
           vms << {
@@ -166,13 +172,33 @@ module OMF::SFA::Model
         end
 
         # Validate other resource types
-        raise "Invalid resource: #{slice_resource}" if slice_resource[:type].nil? or slice_resource[:urn].nil?
-        resource_obj = OMF::SFA::Model::Resource.first({:urn => slice_resource[:urn], :account_id => default_account_id})
-        raise "Resource #{slice_resource[:urn]} not exists" unless resource_obj
+        raise "Invalid resource: #{slice_resource}" if slice_resource[:type].nil? or (slice_resource[:urn].nil? &&
+            slice_resource[:uuid].nil? && slice_resource[:name].nil?)
+
+        # Search resource
+        resource_obj = nil
+        if slice_resource[:urn]
+          resource_obj = OMF::SFA::Model::Resource.where({:urn => slice_resource[:urn], :account_id => default_account_id})
+        end
+        if slice_resource[:uuid]
+          resource_obj = resource_obj.or({:uuid => slice_resource[:uuid], :account_id => default_account_id}) unless resource_obj.nil?
+          resource_obj = OMF::SFA::Model::Resource.where({:uuid => slice_resource[:uuid], :account_id => default_account_id}) unless resource_obj
+        end
+        if slice_resource[:name]
+          resource_obj = resource_obj.or({:name => slice_resource[:name], :account_id => default_account_id}) unless resource_obj.nil?
+          resource_obj = OMF::SFA::Model::Resource.where({:name => slice_resource[:name], :account_id => default_account_id}) unless resource_obj
+        end
+
+        resource_obj = resource_obj.first unless resource_obj.nil?
+        # Skip resource addition if resource does not exists.
+        unless resource_obj
+          not_found_resources << slice_resource
+          next
+        end
         slice_model_resources << resource_obj
       end
 
-      return slice_model_resources, vms
+      return slice_model_resources, vms, not_found_resources
     end
 
     ##
@@ -207,6 +233,7 @@ module OMF::SFA::Model
           sliver_type_vm = scheduler.create_child_resource(res_desc, hypervisor_type, sliver_info)
           slice.add_component(sliver_type_vm)
         rescue => ex
+          remove_components_of_slice(slice)
           raise OMF::SFA::AM::Rest::BadRequestException.new "#{ex.to_s}"
         end
       end
