@@ -669,7 +669,6 @@ module OMF::SFA::AM
     #
     def create_new_resource(resource_descr, type_to_create, authorizer)
       debug "create_new_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
-      authorizer.can_create_resource?(resource_descr, type_to_create)
 
       # New resource creation method, pass through the model
       begin
@@ -684,6 +683,7 @@ module OMF::SFA::AM
 
       debug "Resource '#{type_to_create}' doesn't have the handle_rest_resource_creation method, proceeding with the default creation proccess..."
 
+      authorizer.can_create_resource?(resource_descr, type_to_create)
       resource = nil
       if resource_descr.kind_of? Array
         descr = []
