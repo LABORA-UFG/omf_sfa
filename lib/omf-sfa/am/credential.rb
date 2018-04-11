@@ -65,8 +65,8 @@ module OMF::SFA::AM
 
       #<owner_urn>urn:publicid:IDN+geni:gpo:gcf+user+alice</owner_urn>
       self.new(cred, signer_urn)
-    rescue
-      raise OMF::SFA::AM::Rest::ChCredentialNotValid.new("The Clearing House credential is in wrong format")
+    rescue => ex
+      raise OMF::SFA::AM::Rest::ChCredentialNotValid.new("The Clearing House credential is in wrong format: #{ex.to_s}")
     end
 
     # The xml _content_ (provided as string) should
