@@ -39,6 +39,7 @@ module OMF::SFA::Model
           values[:ips] << ip.to_hash_brief
         end
       end
+      #values[:openflow_switch] = self.openflow_switch.to_hash_brief
       values[:link] = self.link.to_hash_brief unless self.link.nil?
       super
     end
