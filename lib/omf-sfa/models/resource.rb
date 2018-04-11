@@ -39,6 +39,7 @@ module OMF::SFA::Model
           next if res.empty?
           values[assoc] = []
           res.each do |val|
+            next if val.nil?
             values[assoc] << val.to_hash_brief
           end
         elsif res.kind_of? OMF::SFA::Model::Resource

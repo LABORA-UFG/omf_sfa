@@ -19,11 +19,17 @@ module OMF::SFA::Model
 
     def self.include_nested_attributes_to_json
       sup = super
-      [:leases, :of_controller_ip, :interfaces, :vlans].concat(sup)
+      [:leases, :of_controller_ip, :interfaces].concat(sup)
     end
 
     def self.can_be_managed?
       true
     end
+
+    def to_hash_brief
+      values[:hostname] = self.hostname
+      super
+    end
+
   end
 end
