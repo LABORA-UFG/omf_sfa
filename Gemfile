@@ -4,7 +4,7 @@ source "http://rubygems.org"
 gem 'rake', '12.0.0'
 
 group :development, :test do
-  gem 'ruby-debug-ide'
+  #gem 'ruby-debug-ide'
   gem 'debase'
   # gem 'byebug'
 end

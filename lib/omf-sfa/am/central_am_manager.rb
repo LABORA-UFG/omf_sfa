@@ -1326,7 +1326,7 @@ module OMF::SFA::AM
       http.key         = OpenSSL::PKey::RSA.new(pkey) unless type == "Get"
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request          = eval("Net::HTTP::#{type}").new(uri.request_uri, header)
-      if authorizer.instance_of? OMF::SFA::AM::Rest::FibreAuth
+      if authorizer.instance_of? OMF::SFA::AM::Rest::FibreAuth::AMAuthorizer
         request['CH-Credential'] = authorizer.ch_key
       end
       request.body     = options.to_json unless options.nil?
