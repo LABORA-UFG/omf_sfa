@@ -2,7 +2,6 @@ Sequel.migration do
   up do
     create_table(:slices) do
       foreign_key :id, :resources, :primary_key => true, :on_delete => :cascade
-      foreign_key :account_id, :accounts, :on_delete => :cascade
     end
 
     create_table(:components_slices) do

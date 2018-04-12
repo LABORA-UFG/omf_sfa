@@ -198,6 +198,7 @@ module OMF::SFA::Model
         slice_model_resources << resource_obj
       end
 
+      info "NOT FOUNDED RESOURCES: #{not_found_resources}"
       return slice_model_resources, vms, not_found_resources
     end
 
