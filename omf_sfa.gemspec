@@ -20,7 +20,7 @@ Gem::Specification.new do |s|
 
   # specify any dependencies here; for example:
   s.add_development_dependency "minitest", "~> 4.3.3"
-  s.add_runtime_dependency "nokogiri", "~> 1.5.6"
+  s.add_runtime_dependency "nokogiri", "= 1.6.8"
   s.add_runtime_dependency "erector", "~> 0.8.3"
   s.add_runtime_dependency "rack", "~> 1.5.2"
   s.add_runtime_dependency "thin", "~> 1.6.0"
@@ -33,7 +33,7 @@ Gem::Specification.new do |s|
 #
   s.add_runtime_dependency "equivalent-xml", "~> 0.2.9"
   s.add_runtime_dependency "rspec", "~> 2.11.0"
-  s.add_runtime_dependency "activesupport", "~> 3.2.8"
+  s.add_runtime_dependency "activesupport"
   s.add_runtime_dependency "rack-rpc", "~> 0.0.12"
   s.add_runtime_dependency "data_mapper", "~> 1.2.0"
   s.add_runtime_dependency "bluecloth", "~> 2.2.0"
@@ -41,7 +41,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "omf_rc", "~> 6.2.4"
   s.add_runtime_dependency "eventmachine", "~> 1.0.3"
   s.add_runtime_dependency "em-minitest-spec", "~> 1.1.1"
-  s.add_runtime_dependency "sequel", "~> 4.48.0"
+  s.add_runtime_dependency "sequel", "~> 4.37.0"
   s.add_runtime_dependency "rufus-scheduler", "~> 3.0.9"
   s.add_runtime_dependency "sqlite3", "~> 1.3.10"
 end

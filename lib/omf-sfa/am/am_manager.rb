@@ -659,11 +659,11 @@ module OMF::SFA::AM
       resource
     end
 
+    ##
     # Create a new resource
-    #
-    # @param [Hash] Describing properties of the requested resource
-    # @param [String] Type to create
-    # @param [Authorizer] Defines context for authorization decisions
+    # @param resource_descr [Hash] Describing properties of the requested resource
+    # @param type_to_create [String] Type to create
+    # @param authorizer [Authorizer] Defines context for authorization decisions
     # @return [OResource] The resource created
     # @raise [UnknownResourceException] if no resource can be created
     #
@@ -724,9 +724,111 @@ module OMF::SFA::AM
         end
         manage_resource(resource) if resource.class.can_be_managed?
         if type_to_create == 'Account'
-          liaison.create_account(resource)
+          @liaison.create_account(resource)
         end
       end
+      resource
+    end
+
+    ##
+    # Update a resource
+    # @param resource_descr [Hash] Describing properties of the requested resource
+    # @param type_to_create [String] Type to create
+    # @param authorizer [Authorizer] Defines context for authorization decisions
+    # @return [OResource] The resource created
+    # @raise [UnknownResourceException] if no resource can be created
+    #
+    def update_a_resource(resource_descr, type_to_create, authorizer)
+      debug "update_a_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
+
+      # New resource update method, pass through the model
+      begin
+        model_obj = eval("OMF::SFA::Model::#{type_to_create}")
+        if model_obj.respond_to?(:handle_rest_resource_update)
+          resource = model_obj.handle_rest_resource_update(resource_descr, authorizer, get_scheduler)
+          return resource
+        end
+      rescue => ex
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Resource type not exists: '#{type_to_create}'"
+      end
+
+      debug "Resource '#{type_to_create}' doesn't have the handle_rest_resource_update method, proceeding with the default update proccess..."
+
+      descr = {}
+      descr.merge!({uuid: resource_descr[:uuid]}) if resource_descr.has_key?(:uuid)
+      descr.merge!({name: resource_descr[:name]}) if descr[:uuid].nil? && resource_descr.has_key?(:name)
+      descr.merge!({urn: resource_descr[:urn]}) if descr[:uuid].nil? && descr[:name].nil?  && resource_descr.has_key?(:urn)
+
+      if descr.empty?
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Resource of type '#{type_to_create}' with descr '#{resource_descr}' not found."
+      end
+
+      if type_to_create == 'Lease' && (resource_descr[:valid_until] || resource_descr[:valid_from])
+        resource = eval("OMF::SFA::Model::#{type_to_create}").first(descr)
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource with descr'#{resource_descr}'." unless resource
+        desc = {}
+        desc[:valid_from] = resource_descr[:valid_from] if resource_descr[:valid_from]
+        desc[:valid_until] = resource_descr[:valid_until] if resource_descr[:valid_until]
+        get_scheduler.update_lease(resource, desc)
+      elsif (resource = eval("OMF::SFA::Model::#{type_to_create}").first(descr))
+        authorizer.can_modify_resource?(resource, type_to_create)
+        resource.update(resource_descr)
+        get_scheduler.update_lease_events_on_event_scheduler(resource) if type_to_create == 'Lease'
+        # manage_resource(resource)
+      else
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource with descr'#{resource_descr}'."
+      end
+
+      resource
+    end
+
+    ##
+    # Release a resource
+    # @param resource_descr [Hash] Describing properties of the requested resource
+    # @param type_to_release [String] Type to create
+    # @param authorizer [Authorizer] Defines context for authorization decisions
+    # @return [OResource] The resource created
+    # @raise [UnknownResourceException] if no resource can be created
+    #
+    def release_a_resource(resource_descr, type_to_release, authorizer)
+      debug "release_a_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_release}"
+
+      # New resource release method, pass through the model
+      begin
+        model_obj = eval("OMF::SFA::Model::#{type_to_release}")
+        if model_obj.respond_to?(:handle_rest_resource_release)
+          resource = model_obj.handle_rest_resource_release(resource_descr, authorizer, get_scheduler)
+          return resource
+        end
+      rescue => ex
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Resource type not exists: '#{type_to_release}'"
+      end
+
+      debug "Resource '#{type_to_release}' doesn't have the handle_rest_resource_release method, proceeding with the default release proccess..."
+
+      if type_to_release == "Lease" #Lease is a unigue case, needs special treatment
+        resource = OMF::SFA::Model::Lease.first(resource_descr)
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown Lease with descr'#{resource_descr}'." unless resource
+        release_lease(resource, authorizer)
+      else
+        authorizer.can_release_resource?(resource_descr)
+        resource = eval("OMF::SFA::Model::#{type_to_release}").first(resource_descr)
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource of type '#{type_to_release}' with descr'#{resource_descr}'." unless resource
+        if type_to_release == 'Account'
+          @liaison.close_account(resource)
+        end
+        resource.destroy
+      end
+      resource
+    end
+
+    ##
+    # Updates a simple resource, used in FRCP layer
+    #
+    def update_resource(resource_desc, resource_type, authorizer, new_attributes)
+      resource = find_resource(resource_desc, resource_type, authorizer)
+      authorizer.can_modify_resource?(resource, resource_type)
+      resource.update(new_attributes)
       resource
     end
 
@@ -744,7 +846,6 @@ module OMF::SFA::AM
       resource_descr[:account_id] = authorizer.account.id
       find_or_create_resource(resource_descr, type_to_create, authorizer)
     end
-
 
     def create_resources_from_rspec(descr_el, clean_state, authorizer)
       debug "create_resources_from_rspec: descr_el: '#{descr_el}' clean_state: '#{clean_state}' authorizer: '#{authorizer}'"
@@ -941,7 +1042,7 @@ module OMF::SFA::AM
     def update_resource_from_rspec(resource_el, leases, clean_state, authorizer)
       if uuid_attr = (resource_el.attributes['uuid'] || resource_el.attributes['id'])
         uuid = UUIDTools::UUID.parse(uuid_attr.value)
-        resource = find_resource({:uuid => uuid}, authorizer) # wouldn't know what to create
+        resource = find_resource({:uuid => uuid}, 'unknown', authorizer) # wouldn't know what to create
       elsif comp_id_attr = resource_el.attributes['component_id']
         comp_id = comp_id_attr.value
         comp_gurn = OMF::SFA::Model::GURN.parse(comp_id)
@@ -959,7 +1060,7 @@ module OMF::SFA::AM
         # the only resource we can find by a name attribute is a group
         # TODO: Not sure about the 'group' assumption
         name = name_attr.value
-        resource = find_or_create_resource_for_account({:name => name}, 'unknown', {}, authorizer)
+        resource = find_or_create_resource_for_account({:name => name}, 'unknown', authorizer)
       else
         raise FormatException.new "Unknown resource description '#{resource_el.attributes.inspect}"
       end
@@ -1102,13 +1203,6 @@ module OMF::SFA::AM
         end
       end
       @liaison.configure_keys(all_keys, authorizer.account)
-    end
-
-    def update_resource(resource_desc, resource_type, authorizer, new_attributes)
-      resource = find_resource(resource_desc, resource_type, authorizer)
-      authorizer.can_modify_resource?(resource, resource_type)
-      resource.update(new_attributes)
-      resource
     end
   end # class
 end # OMF::SFA::AM

@@ -850,6 +850,20 @@ module OMF::SFA::AM
       resources
     end
 
+    ##
+    # Method used in rest requests to update a resource
+    #
+    def update_a_resource(resource_descr, type_to_create, authorizer)
+      raise "Not implemented yet!"
+    end
+
+    ##
+    # Method used in rest requests to release a resource
+    #
+    def release_a_resource(resource_descr, type_to_release, authorizer)
+      raise "Not implemented yet!"
+    end
+
     def filter_components_by_subauthority(resources_descr, subauth)
       options = resources_descr.clone
       components = resources_descr[:components]

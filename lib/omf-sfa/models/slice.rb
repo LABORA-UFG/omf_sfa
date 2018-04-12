@@ -19,6 +19,7 @@ module OMF::SFA::Model
       values[:components] = []
       values[:links] = []
       values[:nodes] = []
+      values[:vlans] = []
       values[:vms] = []
       self.components.each do |component|
         if component.respond_to?(:sliver_type) && !component.sliver_type.nil?
@@ -27,12 +28,14 @@ module OMF::SFA::Model
           values[:nodes] << component.to_hash_brief
         elsif component.resource_type == 'link'
           values[:links] << component.to_hash_brief
+        elsif component.resource_type == 'vlan'
+          values[:vlans] << component.to_hash_brief
         else
           values[:components] << component.to_hash_brief
         end
       end
       values[:account] = self.account ? self.account.to_hash_brief : nil
-      values.reject! { |k, v| v.nil? or (v.kind_of? Array and v.length == 0)}
+      # values.reject! { |k, v| v.nil? or (v.kind_of? Array and v.length == 0)}
       excluded = self.class.exclude_from_json
       values.reject! { |k, v| excluded.include?(k)}
       values
@@ -89,8 +92,9 @@ module OMF::SFA::Model
       raise OMF::SFA::AM::Rest::BadRequestException.new "The slice could not have empty resources." if slice_resources.length == 0
 
       # Check if slice exists
-      slice = OMF::SFA::Model::Account.join(OMF::SFA::Model::Slice.select_all, account_id: :id)
-                  .filter(Sequel.qualify("Class", "urn") => account_urn).first
+      account = OMF::SFA::Model::Account.first({:urn => account_urn})
+      raise OMF::SFA::AM::Rest::BadRequestException.new "The slice doesn't not exists: #{account_urn}" unless account
+      slice = self.first({:account_id => account.id})
       raise OMF::SFA::AM::Rest::BadRequestException.new "The slice doesn't not exists: #{account_urn}" unless slice
 
       # Check authorization
@@ -116,8 +120,9 @@ module OMF::SFA::Model
       raise OMF::SFA::AM::Rest::BadRequestException.new "You need to inform an account." if account_urn.nil?
 
       # Check if slice exists
-      slice = OMF::SFA::Model::Account.join(OMF::SFA::Model::Slice.select_all, account_id: :id)
-                  .filter(Sequel.qualify("Class", "urn") => account_urn).first
+      account = OMF::SFA::Model::Account.first({:urn => account_urn})
+      raise OMF::SFA::AM::Rest::BadRequestException.new "The slice doesn't not exists: #{account_urn}" unless account
+      slice = self.first({:account_id => account.id})
       raise OMF::SFA::AM::Rest::BadRequestException.new "The slice doesn't not exists: #{account_urn}" unless slice
 
       # Check authorization
