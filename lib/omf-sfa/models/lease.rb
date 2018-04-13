@@ -118,8 +118,7 @@ module OMF::SFA::Model
       components = []
       nil_account_id = scheduler.get_nil_account().id
       if body_opts[:use_slice_components] === true
-        slice = OMF::SFA::Model::Account.join(OMF::SFA::Model::Slice.select_all, account_id: :id)
-                    .filter(Sequel.qualify("Class", "urn") => account.urn).first
+        slice = OMF::SFA::Model::Slice.first({account_id: account.id})
         components = slice.components
         components.each do |comp|
           if comp.account.id == nil_account_id
