@@ -39,7 +39,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "bluecloth", "~> 2.2.0"
   s.add_runtime_dependency "omf_common", "~> 6.2.4"
   s.add_runtime_dependency "omf_rc", "~> 6.2.4"
-  s.add_runtime_dependency "eventmachine", "~> 1.0.3"
+  s.add_runtime_dependency "eventmachine", "~> 1.2.3"
   s.add_runtime_dependency "em-minitest-spec", "~> 1.1.1"
   s.add_runtime_dependency "sequel", "~> 4.37.0"
   s.add_runtime_dependency "rufus-scheduler", "~> 3.0.9"
