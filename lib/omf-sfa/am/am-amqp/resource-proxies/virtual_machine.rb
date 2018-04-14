@@ -9,8 +9,6 @@ module OmfRc::ResourceProxy::VirtualMachine
   property :vm_desc, access: :init_only
   property :label, access: :init_only
 
-  @resource
-
   hook :before_ready do |resource|
     @manager = resource.creation_opts[:manager]
     @authorizer = resource.creation_opts[:authorizer]
@@ -46,6 +44,7 @@ module OmfRc::ResourceProxy::VirtualMachine
     if vm[:resource].nil?
       vm[:error]
     else
+      debug "RAM VALUE IS #{vm[:resource].ram_in_mb}"
       vm[:resource].ram_in_mb
     end
   end
@@ -117,11 +116,11 @@ module OmfRc::ResourceProxy::VirtualMachine
   end
 
   work :get_resource do |resource|
-    if @resource.nil?
       vm_desc = resource.normalize_hash(resource.property[:vm_desc])
       error_msg = nil
+      resource = nil
       begin
-        @resource = @manager.find_resource(vm_desc, "sliver_type", @authorizer)
+        resource = @manager.find_resource(vm_desc, "sliver_type", @authorizer)
       rescue OMF::SFA::AM::UnknownResourceException => error
         error_msg = "Virtual machine not found: #{vm_desc[:or]}"
         resource.inform_error(error_msg)
@@ -132,9 +131,6 @@ module OmfRc::ResourceProxy::VirtualMachine
         error_msg = error.to_s
         resource.inform_error(error_msg)
       end
-      {:resource => @resource, :error => error_msg}
-    else
-      {:resource => @resource, :error => nil}
-    end
+      {:resource => resource, :error => error_msg}
   end
 end
