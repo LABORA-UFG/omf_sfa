@@ -118,9 +118,9 @@ module OmfRc::ResourceProxy::VirtualMachine
   work :get_resource do |resource|
       vm_desc = resource.normalize_hash(resource.property[:vm_desc])
       error_msg = nil
-      resource = nil
+      res = nil
       begin
-        resource = @manager.find_resource(vm_desc, "sliver_type", @authorizer)
+        res = @manager.find_resource(vm_desc, "sliver_type", @authorizer)
       rescue OMF::SFA::AM::UnknownResourceException => error
         error_msg = "Virtual machine not found: #{vm_desc[:or]}"
         resource.inform_error(error_msg)
@@ -131,6 +131,6 @@ module OmfRc::ResourceProxy::VirtualMachine
         error_msg = error.to_s
         resource.inform_error(error_msg)
       end
-      {:resource => resource, :error => error_msg}
+      {:resource => res, :error => error_msg}
   end
 end
