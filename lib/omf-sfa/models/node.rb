@@ -86,6 +86,7 @@ module OMF::SFA::Model
       value = super
       if self.respond_to?(:sliver_type) && !self.sliver_type.nil?
         value = {}
+        value[:uuid] = self.uuid if self.uuid
         value[:hypervisor] = self.urn if self.urn
         value[:name] = self.sliver_type.label if self.sliver_type.label
         value[:cpu_cores] = self.sliver_type.cpu_cores if self.sliver_type.cpu_cores

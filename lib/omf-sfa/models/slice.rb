@@ -255,8 +255,7 @@ module OMF::SFA::Model
       # Remove all actual components
       slice.components.each do |component|
         if component.respond_to?(:sliver_type) && !component.sliver_type.nil? && component.sliver_type.name == 'virtual_machine'
-          debug "Virtual machine slice resource... Removing it! #{component}"
-          slice.remove_component(component)
+          debug "Virtual machine slice resource... Removing it! #{component.sliver_type.label}"
           component.sliver_type.delete
           component.delete
         end

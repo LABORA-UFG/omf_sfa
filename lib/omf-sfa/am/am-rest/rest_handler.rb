@@ -361,7 +361,6 @@ module OMF::SFA::AM::Rest
     private
     # Don't override
 
-
     def dispatch(req)
       opts = {}
       populate_opts(req, opts)
@@ -398,9 +397,6 @@ module OMF::SFA::AM::Rest
 
       ['application/json', JSON.pretty_generate(res)]
     end
-
-
-
 
     def find_resource(resource_uri, description = {})
       descr = description.dup
@@ -468,8 +464,6 @@ module OMF::SFA::AM::Rest
       end
       h
     end
-
-
   end
 end
 

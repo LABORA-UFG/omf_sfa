@@ -126,8 +126,8 @@ module OMF::SFA::AM::Rest
 
     # Create a new resource
     # 
-    # @param [String] request URI
-    # @param [Hash] options of the request
+    # @param resource_uri [String] request URI
+    # @param opts [Hash] options of the request
     # @return [String] Description of the created resource.
     def on_post(resource_uri, opts)
       debug "on_post: #{resource_uri}"
@@ -137,15 +137,14 @@ module OMF::SFA::AM::Rest
 
     # Deletes an existing resource
     # 
-    # @param [String] request URI
-    # @param [Hash] options of the request
+    # @param resource_uri [String] request URI
+    # @param opts [Hash] options of the request
     # @return [String] Description of the created resource.
     def on_delete(resource_uri, opts)
       debug "on_delete: #{resource_uri}"
       delete_resource(resource_uri, opts)
       show_resource(nil, opts)
     end
-
 
     # Update resource(s) referred to by +resource_uri+. If +clean_state+ is
     # true, reset any other state to it's default.
