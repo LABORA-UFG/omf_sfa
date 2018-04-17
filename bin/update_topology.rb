@@ -262,6 +262,8 @@ OmfCommon.init(op_mode, opts) do |el|
               }
               create_resource_with_rest("#{resource_url}/openflow_switch", "openflow_switch",of_switch_properties, @pem, @pkey, ch_key)
               broker_of_switches_dpids << link[:srcDPID]
+            else
+              #TODO add the interface
             end
 
             switch_name = "$fv_of_switch_#{link[:dstDPID]}".parameterize.underscore
@@ -283,6 +285,8 @@ OmfCommon.init(op_mode, opts) do |el|
               }
               create_resource_with_rest("#{resource_url}/openflow_switch", "openflow_switch",of_switch_properties, @pem, @pkey, ch_key)
               broker_of_switches_dpids << link[:dstDPID]
+            else
+              #TODO add the interface
             end
           }
 
