@@ -97,7 +97,7 @@ end
 rest = op.parse(ARGV) || []
 
 def delete_resources_with_rest(url, res_desc, pem, key, ch_key)
-  puts "Delete links through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
+  puts "Delete links through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -118,7 +118,7 @@ def delete_resources_with_rest(url, res_desc, pem, key, ch_key)
 end
 
 def list_resources_with_rest(url, res_desc, pem, key, ch_key)
-  puts "List #{res_desc} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
+  puts "List #{res_desc} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -141,7 +141,7 @@ def list_resources_with_rest(url, res_desc, pem, key, ch_key)
 end
 
 def update_resource_with_rest(url, type, res_desc, pem, key, ch_key)
-  puts "Update #{type} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
+  puts "Update #{type} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -158,12 +158,11 @@ def update_resource_with_rest(url, type, res_desc, pem, key, ch_key)
 
   response = http.request(request)
 
-  puts "OUTPUT:"
   puts "#{response.inspect}"
 end
 
 def create_resource_with_rest(url, type, res_desc, pem, key, ch_key)
-  puts "Create #{type} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n"
+  puts "Create #{type} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -180,7 +179,6 @@ def create_resource_with_rest(url, type, res_desc, pem, key, ch_key)
 
   response = http.request(request)
 
-  puts "OUTPUT:"
   puts "#{response.inspect}"
 end
 
@@ -196,30 +194,27 @@ OmfCommon.init(op_mode, opts) do |el|
       OmfCommon::Auth::CertificateStore.instance.register(@entity)
     end
     comm.subscribe(@flowvisor_rc_topic) do |flowvisor|
-      puts "PASSEI AQUI 1"
       flowvisor.request([:links]) do |msg|
         unless msg.itype == "ERROR"
-
-          puts "PASSEI AQUI 2 = #{msg.itype}"
-          links = if msg.properties[:links] then msg.properties[:links] else [] end
-          info "Links requested: #{links}"
+          flowvisor_links = if msg.properties[:links] then msg.properties[:links] else [] end
+          puts "Flowvisor Links: #{flowvisor_links}"
 
           broker_links = list_resources_with_rest("#{resource_url}/links", "links", @pem, @pkey, ch_key)
           interfaces = list_resources_with_rest("#{resource_url}/interfaces", "interfaces", @pem, @pkey, ch_key)
           of_switches = list_resources_with_rest("#{resource_url}/openflow_switch", "openflow_switches", @pem, @pkey, ch_key)
 
-          puts "broker_links = #{broker_links}"
+          puts "Broker Current Links = #{broker_links}"
 
           broker_links_names = broker_links.collect {|link| link["name"]}
-          broker_of_switches_dpids = interfaces.collect {|interface| interface["datapathid"]}
+          broker_of_switches_dpids = of_switches.collect {|of_switches| of_switches["datapathid"]}
 
           links_properties = []
           link_names = []
           interfaces_urns = []
 
-          links.each {|link|
-            link_name1 = "$fv-#{link[:srcDPID]}-#{link[:srcPort]}-#{link[:dstDPID]}-#{link[:dstPort]}".parameterize.underscore
-            link_name2 = "$fv-#{link[:dstDPID]}-#{link[:dstPort]}-#{link[:srcDPID]}-#{link[:srcPort]}".parameterize.underscore
+          flowvisor_links.each {|link|
+            link_name1 = "$fv_#{link[:srcDPID]}_#{link[:srcPort]}_#{link[:dstDPID]}_#{link[:dstPort]}".parameterize.underscore
+            link_name2 = "$fv_#{link[:dstDPID]}_#{link[:dstPort]}_#{link[:srcDPID]}_#{link[:srcPort]}".parameterize.underscore
             link_names.push(link_name1)
             link_names.push(link_name2)
 
@@ -235,27 +230,21 @@ OmfCommon.init(op_mode, opts) do |el|
             links_properties.push(new_link)
           }
 
-          puts "RESOURCE PROPERTIES = #{links_properties}"
-
           deprecated_links = broker_links_names - link_names
 
           # Remove old links
           deprecated_links.each {|link_name|
-            next unless link_name.starts_with? "$fv-"
+            next unless link_name.starts_with? "$fv_"
             link_desc = {
                 :urn => "urn:publicid:IDN+#{domain}+link+#{link_name}"
             }
             delete_resources_with_rest("#{base_url}/links", link_desc, @pem, @pkey, ch_key)
           }
 
-          unless links_properties.empty?
-            create_resource_with_rest("#{resource_url}/links", "links", links_properties, @pem, @pkey, ch_key)
-          end
-
           # Create the switches if they don't exist
-          links.each {|link|
-            switch_name = "$fv-of_switch-#{link[:srcDPID]}".parameterize.underscore
-            interface_name = "$fv-interface-#{link[:srcDPID]}".parameterize.underscore
+          flowvisor_links.each {|link|
+            switch_name = "$fv_of_switch_#{link[:srcDPID]}".parameterize.underscore
+            interface_name = "$fv_interface_#{link[:srcDPID]}_#{link[:srcPort]}".parameterize.underscore
             interface_urn = "urn:publicid:IDN+#{domain}+interface+#{interface_name}"
             interfaces_urns.push(interface_urn)
             unless broker_of_switches_dpids.include?(link[:srcDPID])
@@ -272,12 +261,11 @@ OmfCommon.init(op_mode, opts) do |el|
                   ]
               }
               create_resource_with_rest("#{resource_url}/openflow_switch", "openflow_switch",of_switch_properties, @pem, @pkey, ch_key)
-            else
-
+              broker_of_switches_dpids << link[:srcDPID]
             end
 
-            switch_name = "$fv-of_switch-#{link[:dstDPID]}".parameterize.underscore
-            interface_name = "$fv-interface-#{link[:dstDPID]}".parameterize.underscore
+            switch_name = "$fv_of_switch_#{link[:dstDPID]}".parameterize.underscore
+            interface_name = "$fv_interface_#{link[:dstDPID]}_#{link[:dstPort]}".parameterize.underscore
             interface_urn = "urn:publicid:IDN+#{domain}+interface+#{interface_name}"
             interfaces_urns.push(interface_urn)
             unless broker_of_switches_dpids.include?(link[:dstDPID])
@@ -294,13 +282,26 @@ OmfCommon.init(op_mode, opts) do |el|
                   ]
               }
               create_resource_with_rest("#{resource_url}/openflow_switch", "openflow_switch",of_switch_properties, @pem, @pkey, ch_key)
+              broker_of_switches_dpids << link[:dstDPID]
             end
           }
+
+          new_links = link_names - broker_links_names
+
+          unless new_links.empty?
+            create_resource_with_rest("#{resource_url}/links", "links", links_properties, @pem, @pkey, ch_key)
+          end
 
           # Put the interfaces into links
           interfaces_urns.each {|urn|
             url = "#{resource_url}/interfaces/#{urn}/links"
-            update_resource_with_rest(url, "interfaces", links_properties[0], @pem, @pkey, ch_key)
+            interface_name = urn.split("interface_")[1]
+            ralated_link = links_properties.select {|link|
+              link[:name].include?(interface_name)
+            }
+            puts "Adding link #{ralated_link[0]} to interface = #{interface_name}"
+
+            update_resource_with_rest(url, "interfaces", ralated_link[0], @pem, @pkey, ch_key)
             #update_resource_with_rest(url, links_properties[1], @pem, @pkey, ch_key)
           }
 

@@ -479,12 +479,12 @@ module OMF::SFA::AM
           if resource_descr[:or]
             resource_descr = resource_descr[:or]
           end
-          if resource_descr[:name].start_with?("urn:publicid:IDN")
-            url += resource_descr[:name]
+          if resource_descr[:urn].start_with?("urn:publicid:IDN")
+            url += resource_descr[:urn]
           else
             url += "urn:publicid:IDN+#{subauth}+"
             url += "#{resource_type.underscore}+"
-            url += "#{resource_descr[:name]}"
+            url += "#{resource_descr[:urn]}"
           end
 
           http, request = prepare_request("GET", url, authorizer)
