@@ -43,6 +43,12 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the requested resource.
     def on_get(resource_uri, opts)
       debug "on_get: #{resource_uri}"
+      if @am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+        # Central manager just need to pass the request to the respectives subauthorities
+        central_result = @am_manager.pass_request(resource_uri, opts, self)
+        return show_resource(central_result, opts)
+      end
+
       authenticator = opts[:req].session[:authorizer]
 
       # Request of a single resource like path '/resources/type1/UUID-OR-URN'
@@ -120,6 +126,12 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the updated resource.
     def on_put(resource_uri, opts)
       debug "on_put: #{resource_uri}"
+      if @am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+        # Central manager just need to pass the request to the respectives subauthorities
+        central_result = @am_manager.pass_request(resource_uri, opts, self)
+        return show_resource(central_result, opts)
+      end
+
       resource = update_resource(resource_uri, true, opts)
       show_resource(resource, opts)
     end
@@ -131,6 +143,12 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the created resource.
     def on_post(resource_uri, opts)
       debug "on_post: #{resource_uri}"
+      if @am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+        # Central manager just need to pass the request to the respectives subauthorities
+        central_result = @am_manager.pass_request(resource_uri, opts, self)
+        return show_resource(central_result, opts)
+      end
+
       resource = update_resource(resource_uri, false, opts)
       show_resource(resource, opts)
     end
@@ -142,6 +160,12 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the created resource.
     def on_delete(resource_uri, opts)
       debug "on_delete: #{resource_uri}"
+      if @am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+        # Central manager just need to pass the request to the respectives subauthorities
+        central_result = @am_manager.pass_request(resource_uri, opts, self)
+        return show_resource(central_result, opts)
+      end
+
       delete_resource(resource_uri, opts)
       show_resource(nil, opts)
     end
@@ -218,7 +242,11 @@ module OMF::SFA::AM::Rest
     end
 
     def show_resources_json(resources, path, opts)
-      res = resources ? resource_to_json(resources, path, opts) : {response: "OK"}
+      if @am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+        res = resources
+      else
+        res = resources ? resource_to_json(resources, path, opts) : {response: "OK"}
+      end
       res[:about] = opts[:req].path
 
       ['application/json', JSON.pretty_generate({:resource_response => res}, :for_rest => true)]

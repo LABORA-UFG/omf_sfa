@@ -239,6 +239,59 @@ module OMF::SFA::AM::Rest
       raise UnknownResourceException.new "Unknown sub collection '#{comp}' for '#{resource_id}:#{resource.class}'."
     end
 
+    def parse_body(opts, allowed_formats = [:json, :xml])
+      req = opts[:req]
+      body = req.body #req.POST
+      raise EmptyBodyException.new unless body
+      if body.is_a? Hash
+        raise UnsupportedBodyFormatException.new('Send body raw, not as form data')
+      end
+      (body = body.string) if body.is_a? StringIO
+      if body.is_a? Tempfile
+        tmp = body
+        body = body.read
+        tmp.rewind
+      end
+      debug 'PARSE_BODY(ct: ', req.content_type, '): ', body.inspect
+      unless content_type = req.content_type
+        body.strip!
+        if ['/', '{', '['].include?(body[0])
+          content_type = 'application/json'
+        else
+          if body.empty?
+            params = req.params.inject({}){|h,(k,v)| h[k.to_sym] = v; h}
+            if allowed_formats.include?(:json)
+              return [params, :json]
+            elsif allowed_formats.include?(:form)
+              return [params, :form]
+            end
+          end
+          # default is XML
+          content_type = 'text/xml'
+        end
+      end
+      begin
+        case content_type
+          when 'application/json'
+            raise UnsupportedBodyFormatException.new(:json) unless allowed_formats.include?(:json)
+            jb = JSON.parse(body)
+            return [_rec_sym_keys(jb), :json]
+          when 'text/xml'
+            xb = Nokogiri::XML(body)
+            raise UnsupportedBodyFormatException.new(:xml) unless allowed_formats.include?(:xml)
+            return [xb, :xml]
+          when 'application/x-www-form-urlencoded'
+            raise UnsupportedBodyFormatException.new(:xml) unless allowed_formats.include?(:form)
+            fb = req.POST
+            puts "FORM: #{fb.inspect}"
+            return [fb, :form]
+        end
+      rescue Exception => ex
+        raise BadRequestException.new "Problems parsing body (#{ex})"
+      end
+      raise UnsupportedBodyFormatException.new(content_type)
+    end
+
 
 
     protected
@@ -303,59 +356,6 @@ module OMF::SFA::AM::Rest
       opts[:target] = find_handler(path, opts)
       #opts[:target].inspect
       opts
-    end
-
-    def parse_body(opts, allowed_formats = [:json, :xml])
-      req = opts[:req]
-      body = req.body #req.POST
-      raise EmptyBodyException.new unless body
-      if body.is_a? Hash
-        raise UnsupportedBodyFormatException.new('Send body raw, not as form data')
-      end
-      (body = body.string) if body.is_a? StringIO
-      if body.is_a? Tempfile
-        tmp = body
-        body = body.read
-        tmp.rewind
-      end
-      debug 'PARSE_BODY(ct: ', req.content_type, '): ', body.inspect
-      unless content_type = req.content_type
-        body.strip!
-        if ['/', '{', '['].include?(body[0])
-          content_type = 'application/json'
-        else
-          if body.empty?
-            params = req.params.inject({}){|h,(k,v)| h[k.to_sym] = v; h}
-            if allowed_formats.include?(:json)
-              return [params, :json]
-            elsif allowed_formats.include?(:form)
-              return [params, :form]
-            end
-          end
-          # default is XML
-          content_type = 'text/xml'
-        end
-      end
-      begin
-        case content_type
-        when 'application/json'
-          raise UnsupportedBodyFormatException.new(:json) unless allowed_formats.include?(:json)
-          jb = JSON.parse(body)
-          return [_rec_sym_keys(jb), :json]
-        when 'text/xml'
-          xb = Nokogiri::XML(body)
-          raise UnsupportedBodyFormatException.new(:xml) unless allowed_formats.include?(:xml)
-          return [xb, :xml]
-        when 'application/x-www-form-urlencoded'
-          raise UnsupportedBodyFormatException.new(:xml) unless allowed_formats.include?(:form)
-          fb = req.POST
-          puts "FORM: #{fb.inspect}"
-          return [fb, :form]
-        end
-      rescue Exception => ex
-        raise BadRequestException.new "Problems parsing body (#{ex})"
-      end
-      raise UnsupportedBodyFormatException.new(content_type)
     end
 
     private

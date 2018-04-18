@@ -19,6 +19,7 @@ module OMF::SFA::AM
   class UnavailablePropertiesException < AMManagerException; end
   class MissingImplementationException < Exception; end
   class UknownLeaseException < Exception; end
+  class UnknownSubAuthorityException < OMF::SFA::AM::Rest::BadRequestException
   class CentralBrokerException < Exception
 
     def initialize(*exceptions)
@@ -54,6 +55,127 @@ module OMF::SFA::AM
       @@sfa_namespaces[:flex] = 'http://nitlab.inf.uth.gr/schema/sfa/rspec/lte/1'
     end
 
+    ###
+    # Method to pass REST requisitions to other subathorities
+    #
+    def pass_request(request_path, opts, rest_handler)
+      get_params = opts[:req].params.symbolize_keys!
+      method = opts[:req].request_method
+      authorizer = opts[:req].session[:authorizer]
+      begin
+        body_params, format = rest_handler.parse_body(opts)
+      rescue Exception => ex
+        error "Error occured while parsing body: #{ex}"
+        body_params = {}
+        format = 'json'
+      end
+
+      debug "===== Request received: ======"
+      debug request_path
+      debug method
+      debug get_params
+      debug body_params
+      debug "===== Done request info ======="
+
+      # Get subauthorities
+      subauthorities = {}
+      if get_params[:component_manager_id]
+        splitted_cm = get_params[:component_manager_id].split("+")
+        if splitted_cm.length == 4
+          cm_subauth = @subauthorities[splitted_cm[1]]
+          unless cm_subauth.nil?
+            subauthorities[splitted_cm[1].to_sym] = cm_subauth
+          end
+        end
+        get_params.delete(:component_manager_id)
+      else
+        subauthorities = @subauthorities
+      end
+
+      raise OMF::SFA::AM::UnknownResourceException.new 'No subauthorities found to make this request.' unless subauthorities.length > 0
+
+      # Recreate the request url
+      pos_url = request_path
+      get_params.each { |key, value|
+        append_key = if pos_url == request_path then '?' else '&' end
+        pos_url += "#{append_key}#{key}=#{value}"
+      }
+
+      # Iterate and make the request for all subauthorities
+      all_responses = []
+      tds = []
+      subauthorities.each do |subauth, subauth_opts|
+        tds << Thread.new {
+          url = "#{subauth_opts[:address]}/resources/#{pos_url}"
+          debug "Making #{method} request to subauth: #{subauth} - #{url}"
+          http, request = prepare_request(method, url, authorizer, subauth_opts, body_params)
+
+          begin
+            out = http.request(request)
+            response = JSON.parse(out.body, symbolize_names: true)
+            subauth_urn = "urn:publicid:IDN+#{subauth}+authority+cm"
+            exception = response[:exception] || nil
+            exception[:component_manager_id] = subauth_urn unless exception.nil?
+            error = response[:error] || nil
+            error[:component_manager_id] = subauth_urn unless error.nil?
+            single_resource = if !response[:resource_response].nil? && !response[:resource_response][:resource].nil? then response[:resource_response][:resource] else nil end
+            resources = if !response[:resource_response].nil? && !response[:resource_response][:resources].nil? then response[:resource_response][:resources] else [] end
+            resources << single_resource unless single_resource.nil?
+            unless resources.nil?
+              resources.each { |res|
+                res[:component_manager_id] = subauth_urn
+              }
+            end
+
+            am_return = {}
+            am_return[:resources] = resources
+            am_return[:exception] = exception unless exception.nil?
+            am_return[:error] = error unless error.nil?
+            all_responses << am_return
+          rescue Errno::ECONNREFUSED
+            error "connection to #{url} refused."
+          end
+        }
+        tds.each {|td| td.join}
+      end
+
+      # join all subauthorities responses...
+      final_response = {:resources => []}
+      all_responses.each { |sub_response|
+        # Join exceptions
+        unless final_response[:exception].nil? or final_response[:exception].kind_of? Array
+          aux_ex = final_response[:exception]
+          final_response[:exception] = []
+          final_response[:exception] << aux_ex
+        end
+        final_response[:exception] = sub_response[:exception] unless (sub_response[:exception].nil? or final_response[:exception].kind_of? Array)
+        final_response[:exception] << sub_response[:exception] if final_response[:exception].kind_of? Array
+
+        # Join errors
+        unless final_response[:error].nil? or final_response[:error].kind_of? Array
+          aux_ex = final_response[:error]
+          final_response[:error] = []
+          final_response[:error] << aux_ex
+        end
+        final_response[:error] = sub_response[:error] unless (sub_response[:error].nil? or final_response[:error].kind_of? Array)
+        final_response[:error] << sub_response[:error] if final_response[:error].kind_of? Array
+
+        # Join resources
+        sub_response[:resources].each { |res|
+          final_response[:resources] << res
+        }
+      }
+      # Remove list and set resource if the result is only one (Brokes CH keys integration)
+      #if final_response[:resources].length == 1
+      #  final_response[:resource] = final_response.delete(:resources).first
+      #end
+
+      debug "===== Request RESULT: length = #{all_responses.length} ====="
+      debug final_response
+      debug "================================="
+      final_response
+    end
+
     ### ACCOUNTS: creating, finding, and releasing accounts
 
     # Return the account described by +account_descr+. Create if it doesn't exist.
@@ -66,35 +188,8 @@ module OMF::SFA::AM
     #
     def find_or_create_account(account_descr, authorizer)
       debug "central find_or_create_account: '#{account_descr.inspect}'"
-
-      acc = find_account(account_descr, authorizer)
-      return JSON.parse(acc.to_json, object_class: OpenStruct) unless acc.nil? || acc.empty?
-
-      raise UnknownResourceException.new "The account with description '#{account_descr}' does not exist. Please describe the account with a URN if you wish to create it." unless account_descr[:urn]
-
-      subauthority = find_subauthority_from_urn(account_descr[:urn])
-
-      raise UnknownResourceException.new "URN '#{account_descr[:urn]}' is not valid." unless subauthority
-
-      url = "#{opts[:address]}resources/accounts"
-      url += "?uuid=#{account_descr[:uuid]}" if account_descr[:uuid]
-      url += "?urn=#{account_descr[:urn]}" if account_descr[:urn]
-
-      options        = {}
-      options[:name] = account_descr[:name] if account_descr
-      options[:urn]  = account_descr[:urn]
-
-      http, request = prepare_request("POST", url, authorizer,subauthority, options)
-
-      begin
-        out = http.request(request)
-        o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resource]
-        resource = o
-      rescue Errno::ECONNREFUSED
-        debug "connection to #{url} refused."
-      end
-      res = JSON.parse(resource)
-      res
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Return the account described by +account_descr+.
@@ -107,41 +202,8 @@ module OMF::SFA::AM
     #
     def find_account(account_descr, authorizer)
       debug "central find__account: '#{account_descr.inspect}'"
-
-      resources = []
-      tds       = []
-      subauthorities = {}
-      if account_descr[:component_manager_id]
-        domain = account_descr[:component_manager_id].split('+')[1]
-        subauthorities[domain.to_sym] = @subauthorities[domain]
-        account_descr.delete(:component_manager_id)
-      else
-        subauthorities = @subauthorities
-      end
-      subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/accounts"
-          url += "?uuid=#{account_descr[:uuid]}" if account_descr[:uuid]
-          url += "?urn=#{account_descr[:urn].gsub('+', '%2B')}" if account_descr[:urn]
-
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            if out.code != '200'
-              next
-            end
-            o = JSON.parse(out.body, symbolize_names: true)
-            account = o[:resource_response][:resource] || o[:resource_response][:resources].first
-            resources = account
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Return all accounts visible to the requesting user
@@ -151,27 +213,8 @@ module OMF::SFA::AM
     #
     def find_all_accounts(authorizer)
       debug "central find_all_accounts"
-
-      resources = []
-      tds       = []
-      @subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/accounts"
-
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
-            resources += o
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Renew account described by +account_descr+ hash until +expiration_time+.
@@ -185,7 +228,8 @@ module OMF::SFA::AM
     #
     def renew_account_until(account_descr, expiration_time, authorizer)
       debug "central renew_account_until: #{account_descr} - #{expiration_time}"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Close the account described by +account+ hash.
@@ -201,7 +245,8 @@ module OMF::SFA::AM
     #
     def close_account(account_descr, authorizer)
       debug "central close_account: #{account_descr}"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     ### USERS
@@ -218,7 +263,8 @@ module OMF::SFA::AM
     #
     def find_or_create_user(user_descr, keys = nil)
       debug "central find_or_create_user: '#{user_descr.inspect}'"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Return the user described by +user_descr+.
@@ -229,42 +275,8 @@ module OMF::SFA::AM
     #
     def find_user(user_descr)
       debug "central find_user: '#{user_descr.inspect}'"
-
-      resources = []
-      tds       = []
-      subauthorities = {}
-      if user_descr[:component_manager_id]
-        domain = user_descr[:component_manager_id].split('+')[1]
-        subauthorities[domain.to_sym] = @subauthorities[domain]
-        user_descr.delete(:component_manager_id)
-      else
-        subauthorities = @subauthorities
-      end
-      subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/users"
-          url += "?uuid=#{user_descr[:uuid]}" if user_descr[:uuid]
-          url += "?urn=#{user_descr[:urn].gsub('+', '%2B')}" if user_descr[:urn]
-
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            if out.code != '200'
-              next
-            end
-            o = JSON.parse(out.body, symbolize_names: true)
-            user = o[:resource_response][:resource] || o[:resource_response][:resources].first
-            resources << user
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-
-      resources = resources.length == 1 ? resources.first : resources
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     ### LEASES: creating, finding, and releasing leases
@@ -279,37 +291,8 @@ module OMF::SFA::AM
     #
     def find_lease(lease_descr, authorizer)
       debug "central find_lease: '#{lease_descr.inspect}'"
-
-      resources = []
-      tds       = []
-      @subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/leases"
-          if lease_descr[:uuid]
-            url += "?uuid=#{lease_descr[:uuid]}"
-          elsif lease_descr[:urn]
-            url += "?urn=#{lease_descr[:urn].gsub('+', '%2B')}"
-          else
-            raise UnavailableResourceException.new "Unknown lease '#{lease_descr.inspect}'"
-          end
-
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
-            o.each do |res|
-              res[:component_manager_id] = "urn:publicid:IDN+#{opts[:domain]}+authority+cm"
-            end
-            resources += o
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-      raise UnavailableResourceException.new "Unknown lease '#{lease_descr.inspect}'" if resources.empty?
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Return the lease described by +lease_descr+. Create if it doesn't exist.
@@ -322,37 +305,8 @@ module OMF::SFA::AM
     #
     def find_or_create_lease(lease_descr, authorizer)
       debug "central find_or_create_lease: '#{lease_descr.inspect}'"
-      begin
-        return find_lease(lease_descr, authorizer)
-      rescue UnavailableResourceException
-      end
-
-      comps = resource_descr[:components] || resource_descr[:components_attributes]
-
-      # raise UnknownResourceException.new "The account with description '#{lease_descr}' does not exist. Please describe the account with a URN if you wish to create it." unless account_descr[:urn]
-
-      domains = find_domains_from_components(comps)
-
-      raise UnknownResourceException.new "The requested components do not belong in a known subauthority." if domains.nil? || domains.empty?
-
-      url = "#{opts[:address]}resources/leases"
-
-      options        = {}
-      options[:name] = lease_descr[:name] if lease_descr[:name]
-      options[:urn]  = lease_descr[:urn]  if lease_descr[:urn]
-
-      http, request = prepare_request("POST", url, authorizer,subauthority, options)
-
-      begin
-        out = http.request(request)
-        o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resource]
-        leases = o
-      rescue Errno::ECONNREFUSED
-        debug "connection to #{url} refused."
-      end
-
-      raise UnavailableResourceException.new "Cannot create '#{lease_descr.inspect}'" if leases.nil? || leases.empty?
-      leases
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Find al leases if no +account+ and +status+ is given
@@ -364,41 +318,8 @@ module OMF::SFA::AM
     #
     def find_all_leases(account = nil, status = ['pending', 'accepted', 'active', 'past', 'cancelled'], authorizer=nil, period=nil)
       debug "central find_all_leases: account: #{account.inspect} status: #{status}"
-
-      resources = []
-      tds       = []
-      @subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/leases"
-          url += "?status=#{status.join(',')}"
-          if account
-            if account[:uuid]
-              url += "&account_uuid=#{account[:uuid]}"
-            elsif account[:urn]
-              url += "&account_urn=#{account[:urn].gsub('+', '%2B')}"
-            end
-          end
-          if period
-            url += "&start=#{period}"
-          end
-
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
-            o.each do |res|
-              res[:component_manager_id] = "urn:publicid:IDN+#{opts[:domain]}+authority+cm"
-            end
-            resources += o
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Modify lease described by +lease_descr+ hash
@@ -410,6 +331,8 @@ module OMF::SFA::AM
     #
     def modify_lease(lease_properties, lease, authorizer)
       debug "central modify_lease: '#{lease_properties.inspect}' - '#{lease.inspect}'"
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # cancel +lease+
@@ -422,7 +345,8 @@ module OMF::SFA::AM
     #
     def release_lease(lease, authorizer)
       debug "central release_lease: lease:'#{lease.inspect}'"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Release an array of leases.
@@ -431,7 +355,8 @@ module OMF::SFA::AM
     # @param [Authorizer] Authorization context
     def release_leases(leases, authorizer)
       debug "central release_leases: leases:'#{leases.inspect}'"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # This method finds all the leases of the specific account and
@@ -442,7 +367,8 @@ module OMF::SFA::AM
     #
     def release_all_leases_for_account(account, authorizer)
       debug "central release_all_leases_for_account:'#{account.inspect}'"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
 
@@ -463,69 +389,8 @@ module OMF::SFA::AM
     #
     def find_resource(resource_descr, resource_type, authorizer)
       debug "central find_resource: descr: '#{resource_descr.inspect}' resource_type: #{resource_type}"
-
-      resources      = []
-      tds            = []
-      subauthorities = {}
-      if resource_descr[:component_manager_id]
-        domain = resource_descr[:component_manager_id].split('+')[1]
-        subauthorities[domain.to_sym] = @subauthorities[domain]
-        resource_descr.delete(:component_manager_id)
-      else
-        subauthorities = @subauthorities
-      end
-      subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/"
-          url += "#{resource_type.underscore.pluralize}/" unless resource_type.nil? || resource_type.empty?
-          if resource_descr[:or]
-            resource_descr = resource_descr[:or]
-          end
-
-          # Concat name, urn or uuid if passed...
-          do_request = true
-          if !resource_descr[:urn].nil? && resource_descr[:urn].start_with?("urn:publicid:IDN+")
-            urn_domain = resource_descr[:urn].split("urn:publicid:IDN+")[1].split("+")[0]
-            do_request = (subauth == urn_domain || urn_domain == "ch.fibre.org.br")
-            url += resource_descr[:urn]
-          elsif !resource_descr[:name].nil?
-            if resource_descr[:name].start_with?("urn:publicid:IDN+")
-              urn_domain = resource_descr[:name].split("urn:publicid:IDN+")[1].split("+")[0]
-              do_request = (subauth == urn_domain || urn_domain == "ch.fibre.org.br")
-            end
-            url += resource_descr[:name]
-          elsif !resource_descr[:uuid].nil?
-            url += resource_descr[:uuid]
-          end
-
-          unless do_request
-            debug "Skipping request to subauth: #{subauth} - #{url}"
-            next
-          end
-
-          debug "Making request to subauth: #{subauth} - #{url}"
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            if out.code != '200'
-              next
-            end
-            o = JSON.parse(out.body, symbolize_names: true)
-            o = o[:resource_response][:resource] || o[:resource_response][:resources].first
-            o[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
-            resources << o
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-
-      debug "===== FIND RESOURCES RESULT: length = #{resources.size} ====="
-      debug resources
-      debug "================================="
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Find resources associated with another resource. If it doesn't exist throws +UnknownResourceException+
@@ -542,71 +407,8 @@ module OMF::SFA::AM
     #
     def find_associated_resources(resource_descr, resource_type, target_type,authorizer)
       debug "central find_associated_resources: descr: '#{resource_descr.inspect}' resource_type: #{resource_type}"
-
-      resources      = []
-      tds            = []
-      subauthorities = {}
-      if resource_descr[:component_manager_id]
-        domain = resource_descr[:component_manager_id].split('+')[1]
-        subauthorities[domain.to_sym] = @subauthorities[domain]
-        resource_descr.delete(:component_manager_id)
-      else
-        subauthorities = @subauthorities
-      end
-      subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/"
-          url += "#{resource_type.underscore.pluralize}/" unless resource_type.nil? || resource_type.empty?
-          if resource_descr[:or]
-            resource_descr = resource_descr[:or]
-          end
-
-          # Concat name, urn or uuid if passed...
-          do_request = true
-          if !resource_descr[:urn].nil? && resource_descr[:urn].start_with?("urn:publicid:IDN+")
-            urn_domain = resource_descr[:urn].split("urn:publicid:IDN+")[1].split("+")[0]
-            do_request = (subauth == urn_domain || urn_domain == "ch.fibre.org.br")
-            url += resource_descr[:urn]
-          elsif !resource_descr[:name].nil?
-            if resource_descr[:name].start_with?("urn:publicid:IDN+")
-              urn_domain = resource_descr[:name].split("urn:publicid:IDN+")[1].split("+")[0]
-              do_request = (subauth == urn_domain || urn_domain == "ch.fibre.org.br")
-            end
-            url += resource_descr[:name]
-          elsif !resource_descr[:uuid].nil?
-            url += resource_descr[:uuid]
-          end
-
-          # concat assoc type
-          url += "/#{target_type.underscore.pluralize}/" unless target_type.nil? || target_type.empty?
-
-          unless do_request
-            debug "Skipping request to subauth: #{subauth} - #{url}"
-            next
-          end
-
-          debug "Making request to subauth: #{subauth} - #{url}"
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            if out.code != '200'
-              next
-            end
-            o = JSON.parse(out.body, symbolize_names: true)
-            o = o[:resource_response][:resource] || o[:resource_response][:resources]
-            o.each do |res|
-              res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
-            end
-            resources = o
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-
-      return nil, resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Find all the resources that fit the description. If it doesn't exist throws +UnknownResourceException+
@@ -623,41 +425,8 @@ module OMF::SFA::AM
     #
     def find_all_resources(resource_descr, resource_type, authorizer)
       debug "central find_all_resources: descr: '#{resource_descr.inspect}' resource_type: #{resource_type}"
-
-      resources = []
-      tds       = []
-      @subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/"
-          url += "#{resource_type.underscore.pluralize}/" unless resource_type.nil? || resource_type.empty?
-          resource_descr.each do |key, value|
-            if key.to_sym == :name || key.to_sym == :uuid || key.to_sym == :urn
-              url[-1] = '?' if url[-1] == '/'
-              url += "#{key}=#{value.gsub('+', '%2B')}"
-            end
-          end
-
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
-            o.each do |res|
-              if resource_type.nil?
-                res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
-              else
-                res[:component_manager_id] = "urn:publicid:IDN+#{opts[:domain]}+authority+cm"
-              end
-            end
-            resources += o
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Find all components matching the resource description that are not leased for the given timeslot.
@@ -673,6 +442,8 @@ module OMF::SFA::AM
     #
     def find_all_available_components(component_descr = {}, component_type, valid_from, valid_until, authorizer)
       debug "central find_all_available_components: descr: '#{component_descr.inspect}', from: '#{valid_from}', until: '#{valid_until}'"
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Find a number of components matching the resource description that are not leased for the given timeslot.
@@ -690,7 +461,8 @@ module OMF::SFA::AM
     #
     def find_available_components(component_descr, component_type, valid_from, valid_until, non_valid_component_uuids = [], nof_requested_components = 1, authorizer)
       debug "central find_all_available_components: descr: '#{component_descr.inspect}', from: '#{valid_from}', until: '#{valid_until}'"
-      []
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Find all resources for a specific account. Return the managed resources
@@ -702,34 +474,8 @@ module OMF::SFA::AM
     #
     def find_all_resources_for_account(account = nil, authorizer)
       debug "central find_all_resources_for_account: #{account.inspect}"
-
-      #TODO fix this method
-      account = _get_nil_account if account.nil?
-      resources = []
-      tds       = []
-      @subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/accounts/"
-          url += "#{account.name}/resources"
-
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            o = JSON.parse(out.body, symbolize_names: true)
-            o = o[:resource_response][:resources]
-            o.each do |res|
-              res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
-            end
-            resources += o
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Find all components for a specific account. Return the managed components
@@ -741,36 +487,8 @@ module OMF::SFA::AM
     #
     def find_all_components_for_account(account = _get_nil_account, authorizer)
       debug "central find_all_components_for_account: #{account.inspect} #{account.kind_of? Hash} #{account[:urn]}"
-      resources = []
-      tds       = []
-      @subauthorities.each do |subauth, opts|
-        tds << Thread.new {
-          url = "#{opts[:address]}resources/nodes"
-          if account.kind_of? Hash
-            if account[:uuid]
-              url += "?account_uuid=#{account[:uuid]}"
-            elsif account[:urn]
-              url += "?account_urn=#{account[:urn].gsub('+', '%2B')}"
-            end
-          end
-
-          http, request = prepare_request("GET", url, authorizer)
-
-          begin
-            out = http.request(request)
-            o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
-            o.each do |res|
-              res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
-            end
-            resources += o
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        }
-        tds.each {|td| td.join}
-      end
-
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Find all components
@@ -781,7 +499,8 @@ module OMF::SFA::AM
     #
     def find_all_components(comp_descr, authorizer)
       debug "central find_all_components: #{comp_descr.inspect}"
-      []
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Find or Create a resource. If an account is given in the resource description
@@ -795,7 +514,8 @@ module OMF::SFA::AM
     #
     def find_or_create_resource(resource_descr, resource_type, authorizer)
       debug "central find_or_create_resource: resource '#{resource_descr.inspect}' type: '#{resource_type}'"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Create a resource. If an account is given in the resource description
@@ -811,7 +531,8 @@ module OMF::SFA::AM
     #
     def create_resource(resource_descr, type_to_create, authorizer)
       debug "central create_resource: resource '#{resource_descr.inspect}' type: '#{resource_type}'"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Create a new resource
@@ -824,124 +545,35 @@ module OMF::SFA::AM
     #
     def create_new_resource(resource_descr, type_to_create, authorizer)
       debug "create_new_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
-
-      resources = []
-      tds       = []
-      errors = []
-      time = DateTime.now.strftime('%Q')
-      @subauthorities.each do |subauth, opts|
-        # Association..
-        if resource_descr[:source_type] && resource_descr[:source_id]
-          tds << Thread.new {
-            url = "#{opts[:address]}resources/#{resource_descr[:source_type].downcase.pluralize}/#{resource_descr[:source_id]}/#{type_to_create.downcase.pluralize}"
-            subauthority = find_subauthority_info(subauth)
-            resource_descr.delete(:source_type)
-            resource_descr.delete(:source_id)
-            options = resource_descr.clone
-
-            debug "Making create_new_resource request: #{url} = #{options}"
-            http, request = prepare_request("POST", url, authorizer, subauthority, options)
-            begin
-              out = http.request(request)
-              check_error_messages(out)
-              response = JSON.parse(out.body, symbolize_names: true)[:resource_response]
-              if !response.nil? and response.has_key?(:resources)
-                o = response[:resources]
-                o.each do |res|
-                  res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
-                end
-                resources += o
-              elsif !response.nil?
-                o = response[:resource]
-                if type_to_create == "Lease" and resources.empty?
-                  resources = o
-                elsif type_to_create == "Lease"
-                  resources[:components] += o[:components]
-                else
-                  o[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
-                  resources << o
-                end
-              end
-            rescue Errno::ECONNREFUSED, OMF::SFA::AM::Rest::NotAuthorizedException => e
-              if e.is_a? OMF::SFA::AM::Rest::NotAuthorizedException
-                errors << e
-              else
-                debug "connection to #{url} refused."
-              end
-            end
-          }
-        else
-          # Other treatments...
-          options = filter_components_by_subauthority(resource_descr, subauth)
-          if (!options[:components].nil? and !options[:components].empty?) or type_to_create != "Lease"
-            tds << Thread.new {
-              url = "#{opts[:address]}resources/#{type_to_create.downcase}"
-              subauthority = find_subauthority_info(subauth)
-
-              options[:name] = "#{options[:name]}_#{time}"
-
-              http, request = prepare_request("POST", url, authorizer, subauthority, options)
-
-              begin
-                out = http.request(request)
-                check_error_messages(out)
-                response = JSON.parse(out.body, symbolize_names: true)[:resource_response]
-                if !response.nil? and response.has_key?(:resources)
-                  o = response[:resources]
-                  o.each do |res|
-                    res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
-                  end
-                  resources += o
-                elsif !response.nil?
-                  o = response[:resource]
-                  if type_to_create == "Lease" and resources.empty?
-                    resources = o
-                  elsif type_to_create == "Lease"
-                    resources[:components] += o[:components]
-                  else
-                    o[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
-                    resources << o
-                  end
-                end
-              rescue Errno::ECONNREFUSED, OMF::SFA::AM::Rest::NotAuthorizedException => e
-                if e.is_a? OMF::SFA::AM::Rest::NotAuthorizedException
-                  errors << e
-                else
-                  debug "connection to #{url} refused."
-                end
-              end
-            }
-          end
-        end
-        tds.each {|td| td.join}
-      end
-
-      if !errors.empty? and resource_descr[:policy] == "all-or-nothing"
-        release_resources(resources, authorizer)
-        raise CentralBrokerException.new(*errors)
-      elsif !errors.empty?
-        raise CentralBrokerException.new(*errors) if resources.empty?
-        resources[:errors] = errors.collect {|error|
-          hash = JSON.parse(error.reply[2])
-          hash['exception']['reason']
-        } unless errors.empty?
-      end
-
-      resources
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     ##
     # Method used in rest requests to update a resource
     #
     def update_a_resource(resource_descr, type_to_create, authorizer)
-      raise "Not implemented yet!"
+      debug "update_a_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_create}"
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
+    end
+
+    ##
+    # Update internal resources in AMQP layer
+    #
+    def update_resource(resource_desc, resource_type, authorizer, new_attributes)
+      debug "update_resource: resource_descr: #{resource_desc}, type: #{resource_type}, new_attrs: #{new_attributes}"
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     ##
     # Method used in rest requests to release a resource
     #
     def release_a_resource(resource_descr, type_to_release, authorizer)
-      raise "Not implemented yet!"
+      debug "release_a_resource: resource_descr: #{resource_descr}, type_to_create: #{type_to_release}"
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     def filter_components_by_subauthority(resources_descr, subauth)
@@ -976,13 +608,8 @@ module OMF::SFA::AM
     #
     def find_or_create_resource_for_account(resource_descr, type_to_create, authorizer)
       debug "central find_or_create_resource_for_account: r_descr:'#{resource_descr}' type:'#{type_to_create}'"
-
-    end
-
-
-    def create_resources_from_rspec(descr_el, clean_state, authorizer)
-      debug "central create_resources_from_rspec: descr_el: '#{descr_el}' clean_state: '#{clean_state}'"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Release 'resource'.
@@ -995,7 +622,8 @@ module OMF::SFA::AM
     #
     def release_resource(resource, authorizer=nil)
       debug "central release_resource: '#{resource.inspect}'"
-
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # Release an array of resources.
@@ -1003,37 +631,9 @@ module OMF::SFA::AM
     # @param [Array<Resource>] Resources to release
     # @param [Authorizer] Authorization context
     def release_resources(resources, authorizer=nil)
-      return unless !resources.nil? and !resources.empty?
       debug "central release_resources: '#{resources.inspect}'"
-
-      outputs = []
-      tds       = []
-      @subauthorities.each do |subauth, opts|
-        options = filter_resources_by_subauthority(resources, subauth)
-        unless options.nil? or options.empty?
-          tds << Thread.new {
-            url = "#{opts[:address]}resources/leases"
-            subauthority = find_subauthority_info(subauth)
-
-            http, request = prepare_request("DELETE", url, authorizer, subauthority, options)
-
-            begin
-              out = http.request(request)
-              check_error_messages(out)
-              response = JSON.parse(out.body, symbolize_names: true)[:resource_response]
-              outputs << response
-            rescue Errno::ECONNREFUSED, OMF::SFA::AM::Rest::NotAuthorizedException => e
-              if e.is_a? OMF::SFA::AM::Rest::NotAuthorizedException
-                error = e
-              else
-                debug "connection to #{url} refused."
-              end
-            end
-          }
-        end
-        tds.each {|td| td.join}
-      end
-      outputs
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     # This method finds all the components of the specific account and
@@ -1044,8 +644,14 @@ module OMF::SFA::AM
     #
     def release_all_components_for_account(account, authorizer)
       debug "central release_all_components_for_account: '#{account.inspect}'"
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
+    def create_resources_from_rspec(descr_el, clean_state, authorizer)
+      debug "central create_resources_from_rspec: descr_el: '#{descr_el}' clean_state: '#{clean_state}'"
+      raise 'NOT IMPLEMENTED YET!'
+    end
 
     # Update the resources described in +resource_el+. Any resource not already assigned to the
     # requesting account will be added. If +clean_state+ is true, the state of all described resources
@@ -1280,114 +886,9 @@ module OMF::SFA::AM
     end
 
     def configure_user_keys(users, authorizer)
-      info "===== configure_user_keys CALLED! ====="
-      users.each do |user|
-        user_urn = user['urn']
-        user[:component_manager_ids].each do |id|
-          domain = id.split('+')[1]
-          subauthority = @subauthorities[domain]
-          raise UnknownResourceException.new "At least one of the requested components do not belong in a known subauthority." if subauthority.nil? || subauthority.empty?
-
-          ex_user = find_user({urn: user_urn, component_manager_id: id})
-          if ex_user.nil? || ex_user.empty?
-            url = "#{subauthority[:address]}resources/users"
-
-            options               = {}
-            options[:name]        = user['name'] if user['name']
-            options[:urn]         = user['urn']  if user['urn']
-
-            http, request = prepare_request("POST", url, authorizer,subauthority, options)
-
-            begin
-              out = http.request(request)
-              o = JSON.parse(out.body, symbolize_names: true)
-              if o[:exception]
-                error "user creation for '#{user[:urn]}' failed: code: #{o[:exception][:code]} msg: #{o[:exception][:reason]}"
-                raise UnavailableResourceException.new "Cannot create '#{user[:client_id]}', #{o[:exception][:reason]}"
-              else
-                o = o[:resource_response][:resource] || o[:resource_response][:resources]
-                o[:component_manager_id] = user[:component_manager_id]
-              end
-              ex_user = o
-            rescue Errno::ECONNREFUSED
-              debug "connection to #{url} refused."
-            end
-          end
-
-          account = find_account({urn: authorizer.account[:urn], component_manager_id: id}, authorizer)
-          if account.nil? || account.empty?
-            raise UnavailableResourceException.new "Account #{authorizer.account[:urn]} is absent or closed."
-          end
-
-          # find user keys with /resources/users/user_uuid/keys
-          url = "#{subauthority[:address]}resources/users/#{ex_user[:uuid]}/keys/"
-
-          http, request = prepare_request("GET", url, authorizer)
-
-          user_keys = []
-          begin
-            out = http.request(request)
-            o = JSON.parse(out.body, symbolize_names: true)[:resource_response][:resources]
-
-            o.each do |k|
-              user_keys << k[:ssh_key]
-            end
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-
-          user['keys'].each do |key|
-            next if user_keys.include?(key)
-            new_key = find_key(key, subauthority)
-            unless new_key
-              url = "#{subauthority[:address]}resources/keys"
-
-              options           = {}
-              options[:name]    = "#{user['urn'].split('+').last}_#{key.split(' ').last}"
-              options[:ssh_key] = key
-
-              http, request = prepare_request("POST", url, authorizer,subauthority, options)
-
-              begin
-                out = http.request(request)
-                o = JSON.parse(out.body, symbolize_names: true)
-                new_key = o[:resource_response][:resource] || o[:resource_response][:resources].first
-              rescue Errno::ECONNREFUSED
-                debug "connection to #{url} refused."
-              end
-            end
-
-            url = "#{subauthority[:address]}resources/users/#{ex_user[:uuid]}/keys"
-
-            options        = {}
-            options[:uuid] = new_key[:uuid]
-
-            http, request = prepare_request("PUT", url, authorizer,subauthority, options)
-
-            begin
-              out = http.request(request)
-              o = JSON.parse(out.body, symbolize_names: true)
-              new_key = o[:resource_response][:resource] || o[:resource_response][:resources].first
-            rescue Errno::ECONNREFUSED
-              debug "connection to #{url} refused."
-            end
-          end
-          url = "#{subauthority[:address]}resources/users/#{ex_user[:uuid]}/accounts"
-
-          options        = {}
-          options[:uuid] = account[:uuid]
-
-          http, request = prepare_request("PUT", url, authorizer,subauthority, options)
-
-          begin
-            out = http.request(request)
-            o = JSON.parse(out.body, symbolize_names: true)
-            new_key = o[:resource_response][:resource] || o[:resource_response][:resources].first
-          rescue Errno::ECONNREFUSED
-            debug "connection to #{url} refused."
-          end
-        end
-      end
+      debug "configure_user_keys called: #{users}"
+      raise 'Method not implemented because the Central Manager just need to pass the same requisition to the other' \
+                ' brokers and create the concatenated results'
     end
 
     private
@@ -1556,10 +1057,6 @@ module OMF::SFA::AM
         else
           #just ignoring for now
       end
-    end
-
-    def update_resource(resource_desc, resource_type, authorizer, new_attributes)
-      raise "Not implemented yet!"
     end
 
   end # class

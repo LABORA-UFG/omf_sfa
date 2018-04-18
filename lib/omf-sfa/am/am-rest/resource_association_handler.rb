@@ -14,6 +14,12 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the requested resource.
     def on_get(resource_uri, opts)
       debug "on_get: #{resource_uri}"
+      if @am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+        # Central manager just need to pass the request to the respectives subauthorities
+        central_result = @am_manager.pass_request(resource_uri, opts, self)
+        return show_resource(central_result, opts)
+      end
+
       source_type, source_id, target_type, params = parse_uri(resource_uri, opts)
       desc = {
           :or => {
@@ -45,6 +51,12 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the updated resource.
     def on_put(resource_uri, opts)
       debug "on_put: #{resource_uri}"
+      if @am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+        # Central manager just need to pass the request to the respectives subauthorities
+        central_result = @am_manager.pass_request(resource_uri, opts, self)
+        return show_resource(central_result, opts)
+      end
+
       source_type, source_id, target_type, params = parse_uri(resource_uri, opts)
       desc = {
           :or => {
@@ -106,6 +118,12 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the created resource.
     def on_delete(resource_uri, opts)
       debug "on_delete: #{resource_uri}"
+      if @am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+        # Central manager just need to pass the request to the respectives subauthorities
+        central_result = @am_manager.pass_request( resource_uri, opts, self)
+        return show_resource(central_result, opts)
+      end
+
       source_type, source_id, target_type, params = parse_uri(resource_uri, opts)
       desc = {
           :or => {
@@ -183,6 +201,12 @@ module OMF::SFA::AM::Rest
     # @return [String] Description of the created resource.
     def on_post(resource_uri, opts)
       debug "on_post: #{resource_uri}"
+      if @am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+        # Central manager just need to pass the request to the respectives subauthorities
+        central_result = @am_manager.pass_request(resource_uri, opts, self)
+        return show_resource(central_result, opts)
+      end
+
       source_type, source_id, target_type, params = parse_uri(resource_uri, opts)
       desc = {
           :or => {

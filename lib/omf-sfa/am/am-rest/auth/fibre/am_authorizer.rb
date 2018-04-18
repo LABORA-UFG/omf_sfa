@@ -33,7 +33,10 @@ module OMF::SFA::AM::Rest::FibreAuth
       raise OMF::SFA::AM::InsufficientPrivilegesException.new "Credential owner URN is missing." if user_descr.empty?
 
       begin
-        user = am_manager.find_or_create_user(user_descr)
+        user = nil
+        unless am_manager.kind_of? OMF::SFA::AM::CentralAMManager
+          user = am_manager.find_or_create_user(user_descr)
+        end
       rescue OMF::SFA::AM::UnavailableResourceException
         raise OMF::SFA::AM::InsufficientPrivilegesException.new "User: '#{user_descr}' does not exist and its not " +
                   "possible to create it"
@@ -188,7 +191,7 @@ module OMF::SFA::AM::Rest::FibreAuth
                                                                         "the privilege to enable a closed account")
           end
         end
-        @account.add_user(@user) unless @account.users.include?(@user)
+        @account.add_user(@user) unless (@account.users.include?(@user) or @user.nil?)
         @account.save
       end
     end
