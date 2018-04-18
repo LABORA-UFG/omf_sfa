@@ -32,7 +32,7 @@ module OMF::SFA::AM::Rest
         require 'omf-sfa/am/am-rest/resource_association_handler'
         return OMF::SFA::AM::Rest::ResourceAssociationHandler.new(@am_manager, opts)
       else
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL."
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL: #{path}"
       end
     end
 

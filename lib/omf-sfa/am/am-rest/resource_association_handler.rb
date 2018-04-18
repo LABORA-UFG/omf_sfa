@@ -194,21 +194,33 @@ module OMF::SFA::AM::Rest
       source_resource = @am_manager.find_resource(desc, source_type, authorizer)
 
       body, format = parse_body(opts)
+      body[:source_type] = source_type
+      body[:source_id] = source_id
       target_resource = @am_manager.create_new_resource(body, target_type.singularize.camelize, authorizer)
 
-      if source_resource.class.method_defined?("add_#{target_type.singularize}")
-        raise OMF::SFA::AM::Rest::BadRequestException.new "resources are already associated." if source_resource.send(target_type).include?(target_resource)
-        source_resource.send("add_#{target_type.singularize}", target_resource)
-      elsif source_resource.class.method_defined?("#{target_type.singularize}=")
-        source_resource.send("#{target_type.singularize}=", target_resource)
+      if source_resource.kind_of? Array
+        source_resource.each { |domain_resource|
+          if domain_resource[target_type.singularize].kind_of? Hash or domain_resource[target_type.singularize].nil?
+            domain_resource[target_type.singularize] = target_resource
+          elsif domain_resource[target_type.singularize].kind_of? Array
+            domain_resource[target_type.singularize] << target_resource
+          end
+        }
       else
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL."
-      end
+        if source_resource.class.method_defined?("add_#{target_type.singularize}")
+          raise OMF::SFA::AM::Rest::BadRequestException.new "resources are already associated." if source_resource.send(target_type).include?(target_resource)
+          source_resource.send("add_#{target_type.singularize}", target_resource)
+        elsif source_resource.class.method_defined?("#{target_type.singularize}=")
+          source_resource.send("#{target_type.singularize}=", target_resource)
+        else
+          raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL."
+        end
 
-      if @special_cases.include?([source_type.pluralize.downcase, target_type.pluralize.downcase])
-        self.send("add_#{target_type.pluralize.downcase}_to_#{source_type.pluralize.downcase}", [target_resource], source_resource)
+        if @special_cases.include?([source_type.pluralize.downcase, target_type.pluralize.downcase])
+          self.send("add_#{target_type.pluralize.downcase}_to_#{source_type.pluralize.downcase}", [target_resource], source_resource)
+        end
+        source_resource.save
       end
-      source_resource.save
       show_resource(source_resource, opts)
     end
 

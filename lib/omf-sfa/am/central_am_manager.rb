@@ -362,7 +362,7 @@ module OMF::SFA::AM
     # @param [Authorizer] Authorization context
     # @return [Lease] The requested leases
     #
-    def find_all_leases(account = nil, status = ['pending', 'accepted', 'active', 'past', 'cancelled'], authorizer)
+    def find_all_leases(account = nil, status = ['pending', 'accepted', 'active', 'past', 'cancelled'], authorizer=nil, period=nil)
       debug "central find_all_leases: account: #{account.inspect} status: #{status}"
 
       resources = []
@@ -377,6 +377,9 @@ module OMF::SFA::AM
             elsif account[:urn]
               url += "&account_urn=#{account[:urn].gsub('+', '%2B')}"
             end
+          end
+          if period
+            url += "&start=#{period}"
           end
 
           http, request = prepare_request("GET", url, authorizer)
@@ -407,7 +410,6 @@ module OMF::SFA::AM
     #
     def modify_lease(lease_properties, lease, authorizer)
       debug "central modify_lease: '#{lease_properties.inspect}' - '#{lease.inspect}'"
-
     end
 
     # cancel +lease+
@@ -479,14 +481,29 @@ module OMF::SFA::AM
           if resource_descr[:or]
             resource_descr = resource_descr[:or]
           end
-          if resource_descr[:name].start_with?("urn:publicid:IDN")
+
+          # Concat name, urn or uuid if passed...
+          do_request = true
+          if !resource_descr[:urn].nil? && resource_descr[:urn].start_with?("urn:publicid:IDN+")
+            urn_domain = resource_descr[:urn].split("urn:publicid:IDN+")[1].split("+")[0]
+            do_request = (subauth == urn_domain || urn_domain == "ch.fibre.org.br")
+            url += resource_descr[:urn]
+          elsif !resource_descr[:name].nil?
+            if resource_descr[:name].start_with?("urn:publicid:IDN+")
+              urn_domain = resource_descr[:name].split("urn:publicid:IDN+")[1].split("+")[0]
+              do_request = (subauth == urn_domain || urn_domain == "ch.fibre.org.br")
+            end
             url += resource_descr[:name]
-          else
-            url += "urn:publicid:IDN+#{subauth}+"
-            url += "#{resource_type.underscore}+"
-            url += "#{resource_descr[:name]}"
+          elsif !resource_descr[:uuid].nil?
+            url += resource_descr[:uuid]
           end
 
+          unless do_request
+            debug "Skipping request to subauth: #{subauth} - #{url}"
+            next
+          end
+
+          debug "Making request to subauth: #{subauth} - #{url}"
           http, request = prepare_request("GET", url, authorizer)
 
           begin
@@ -505,6 +522,9 @@ module OMF::SFA::AM
         tds.each {|td| td.join}
       end
 
+      debug "===== FIND RESOURCES RESULT: length = #{resources.size} ====="
+      debug resources
+      debug "================================="
       resources
     end
 
@@ -537,18 +557,35 @@ module OMF::SFA::AM
         tds << Thread.new {
           url = "#{opts[:address]}resources/"
           url += "#{resource_type.underscore.pluralize}/" unless resource_type.nil? || resource_type.empty?
-
           if resource_descr[:or]
             resource_descr = resource_descr[:or]
-            resource_descr.delete(:uuid)
           end
-          resource_descr.each do |key, value|
-            if key.to_sym == :name || key.to_sym == :urn
-              url += "#{value}/"
-            end
-          end
-          url += "#{target_type.underscore.pluralize}/" unless target_type.nil? || target_type.empty?
 
+          # Concat name, urn or uuid if passed...
+          do_request = true
+          if !resource_descr[:urn].nil? && resource_descr[:urn].start_with?("urn:publicid:IDN+")
+            urn_domain = resource_descr[:urn].split("urn:publicid:IDN+")[1].split("+")[0]
+            do_request = (subauth == urn_domain || urn_domain == "ch.fibre.org.br")
+            url += resource_descr[:urn]
+          elsif !resource_descr[:name].nil?
+            if resource_descr[:name].start_with?("urn:publicid:IDN+")
+              urn_domain = resource_descr[:name].split("urn:publicid:IDN+")[1].split("+")[0]
+              do_request = (subauth == urn_domain || urn_domain == "ch.fibre.org.br")
+            end
+            url += resource_descr[:name]
+          elsif !resource_descr[:uuid].nil?
+            url += resource_descr[:uuid]
+          end
+
+          # concat assoc type
+          url += "/#{target_type.underscore.pluralize}/" unless target_type.nil? || target_type.empty?
+
+          unless do_request
+            debug "Skipping request to subauth: #{subauth} - #{url}"
+            next
+          end
+
+          debug "Making request to subauth: #{subauth} - #{url}"
           http, request = prepare_request("GET", url, authorizer)
 
           begin
@@ -793,16 +830,17 @@ module OMF::SFA::AM
       errors = []
       time = DateTime.now.strftime('%Q')
       @subauthorities.each do |subauth, opts|
-        options = filter_components_by_subauthority(resource_descr, subauth)
-        if (!options[:components].nil? and !options[:components].empty?) or type_to_create != "Lease"
+        # Association..
+        if resource_descr[:source_type] && resource_descr[:source_id]
           tds << Thread.new {
-            url = "#{opts[:address]}resources/#{type_to_create.downcase}"
+            url = "#{opts[:address]}resources/#{resource_descr[:source_type].downcase.pluralize}/#{resource_descr[:source_id]}/#{type_to_create.downcase.pluralize}"
             subauthority = find_subauthority_info(subauth)
+            resource_descr.delete(:source_type)
+            resource_descr.delete(:source_id)
+            options = resource_descr.clone
 
-            options[:name] = "#{options[:name]}_#{time}"
-
+            debug "Making create_new_resource request: #{url} = #{options}"
             http, request = prepare_request("POST", url, authorizer, subauthority, options)
-
             begin
               out = http.request(request)
               check_error_messages(out)
@@ -832,6 +870,48 @@ module OMF::SFA::AM
               end
             end
           }
+        else
+          # Other treatments...
+          options = filter_components_by_subauthority(resource_descr, subauth)
+          if (!options[:components].nil? and !options[:components].empty?) or type_to_create != "Lease"
+            tds << Thread.new {
+              url = "#{opts[:address]}resources/#{type_to_create.downcase}"
+              subauthority = find_subauthority_info(subauth)
+
+              options[:name] = "#{options[:name]}_#{time}"
+
+              http, request = prepare_request("POST", url, authorizer, subauthority, options)
+
+              begin
+                out = http.request(request)
+                check_error_messages(out)
+                response = JSON.parse(out.body, symbolize_names: true)[:resource_response]
+                if !response.nil? and response.has_key?(:resources)
+                  o = response[:resources]
+                  o.each do |res|
+                    res[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
+                  end
+                  resources += o
+                elsif !response.nil?
+                  o = response[:resource]
+                  if type_to_create == "Lease" and resources.empty?
+                    resources = o
+                  elsif type_to_create == "Lease"
+                    resources[:components] += o[:components]
+                  else
+                    o[:component_manager_id] = "urn:publicid:IDN+#{subauth}+authority+cm"
+                    resources << o
+                  end
+                end
+              rescue Errno::ECONNREFUSED, OMF::SFA::AM::Rest::NotAuthorizedException => e
+                if e.is_a? OMF::SFA::AM::Rest::NotAuthorizedException
+                  errors << e
+                else
+                  debug "connection to #{url} refused."
+                end
+              end
+            }
+          end
         end
         tds.each {|td| td.join}
       end
@@ -1200,6 +1280,7 @@ module OMF::SFA::AM
     end
 
     def configure_user_keys(users, authorizer)
+      info "===== configure_user_keys CALLED! ====="
       users.each do |user|
         user_urn = user['urn']
         user[:component_manager_ids].each do |id|
@@ -1312,6 +1393,7 @@ module OMF::SFA::AM
     private
 
     def prepare_request(type, url, authorizer, subauthority=nil, options=nil, header=nil)
+      debug "PREPARE REQUEST CALLED: #{url}"
       header = {"Content-Type" => "application/json", "Accept" => "application/json"} if header.nil?
       type = type.capitalize
 
