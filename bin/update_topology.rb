@@ -186,6 +186,40 @@ def authorization?
   @authorization
 end
 
+def create_of_switch_and_interfaces(broker_of_switches_dpids, ch_key, domain, interfaces_urns, linkDPID, linkPort, resource_url)
+  switch_name = "$fv_of_switch_#{linkDPID}".parameterize.underscore
+  switch_urn = "urn:publicid:IDN+#{domain}+openflow_switch+#{switch_name}"
+  interface_name = "$fv_interface_#{linkDPID}_#{linkPort}".parameterize.underscore
+  interface_urn = "urn:publicid:IDN+#{domain}+interface+#{interface_name}"
+  unless broker_of_switches_dpids.include?(linkDPID)
+    of_switch_properties = {
+        :name => switch_name,
+        :urn => switch_urn,
+        :resource_type => "openflow_switch",
+        :datapathid => linkDPID,
+        :interfaces_attributes => [
+            {
+                :name => interface_name,
+                :urn => interface_urn,
+                :role => "control"
+            }
+        ]
+    }
+    create_resource_with_rest("#{resource_url}/openflow_switch", "openflow_switch", of_switch_properties, @pem, @pkey, ch_key)
+    broker_of_switches_dpids << linkDPID
+  else
+    url = "#{resource_url}/openflow_switch/#{switch_urn}/interfaces"
+    interface_properties = {
+        :name => interface_name,
+        :urn => interface_urn,
+        :role => "control"
+    }
+    create_resource_with_rest("#{resource_url}/interfaces", "interfaces", interface_properties, @pem, @pkey, ch_key) unless interfaces_urns.include?(interface_urn)
+    update_resource_with_rest(url, "openflow_switch", interface_properties, @pem, @pkey, ch_key)
+  end
+  interfaces_urns.push(interface_urn)
+end
+
 OmfCommon.init(op_mode, opts) do |el|
   OmfCommon.comm.on_connected do |comm|
     if authorization?
@@ -243,51 +277,9 @@ OmfCommon.init(op_mode, opts) do |el|
 
           # Create the switches if they don't exist
           flowvisor_links.each {|link|
-            switch_name = "$fv_of_switch_#{link[:srcDPID]}".parameterize.underscore
-            interface_name = "$fv_interface_#{link[:srcDPID]}_#{link[:srcPort]}".parameterize.underscore
-            interface_urn = "urn:publicid:IDN+#{domain}+interface+#{interface_name}"
-            interfaces_urns.push(interface_urn)
-            unless broker_of_switches_dpids.include?(link[:srcDPID])
-              of_switch_properties = {
-                  :name => switch_name,
-                  :urn => "urn:publicid:IDN+#{domain}+openflow_switch+#{switch_name}",
-                  :resource_type => "openflow_switch",
-                  :datapathid => link[:srcDPID],
-                  :interfaces_attributes => [
-                      {
-                          :name => interface_name,
-                          :role => "control"
-                      }
-                  ]
-              }
-              create_resource_with_rest("#{resource_url}/openflow_switch", "openflow_switch",of_switch_properties, @pem, @pkey, ch_key)
-              broker_of_switches_dpids << link[:srcDPID]
-            else
-              #TODO add the interface
-            end
+            create_of_switch_and_interfaces(broker_of_switches_dpids, ch_key, domain, interfaces_urns, link[:srcDPID], link[:srcPort], resource_url)
 
-            switch_name = "$fv_of_switch_#{link[:dstDPID]}".parameterize.underscore
-            interface_name = "$fv_interface_#{link[:dstDPID]}_#{link[:dstPort]}".parameterize.underscore
-            interface_urn = "urn:publicid:IDN+#{domain}+interface+#{interface_name}"
-            interfaces_urns.push(interface_urn)
-            unless broker_of_switches_dpids.include?(link[:dstDPID])
-              of_switch_properties = {
-                  :name => switch_name,
-                  :urn => "urn:publicid:IDN+#{domain}+openflow_switch+#{switch_name}",
-                  :resource_type => "openflow_switch",
-                  :datapathid => link[:dstDPID],
-                  :interfaces_attributes => [
-                      {
-                          :name => interface_name,
-                          :role => "control"
-                      }
-                  ]
-              }
-              create_resource_with_rest("#{resource_url}/openflow_switch", "openflow_switch",of_switch_properties, @pem, @pkey, ch_key)
-              broker_of_switches_dpids << link[:dstDPID]
-            else
-              #TODO add the interface
-            end
+            create_of_switch_and_interfaces(broker_of_switches_dpids, ch_key, domain, interfaces_urns, link[:dstDPID], link[:dstPort], resource_url)
           }
 
           new_links = link_names - broker_links_names
@@ -301,12 +293,11 @@ OmfCommon.init(op_mode, opts) do |el|
             url = "#{resource_url}/interfaces/#{urn}/links"
             interface_name = urn.split("interface_")[1]
             ralated_link = links_properties.select {|link|
-              link[:name].include?(interface_name)
+              not /(?:#{interface_name}$|#{interface_name}_)/.match(link[:name]).nil?
             }
             puts "Adding link #{ralated_link[0]} to interface = #{interface_name}"
 
             update_resource_with_rest(url, "interfaces", ralated_link[0], @pem, @pkey, ch_key)
-            #update_resource_with_rest(url, links_properties[1], @pem, @pkey, ch_key)
           }
 
           puts 'done.'
