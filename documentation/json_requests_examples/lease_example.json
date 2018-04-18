@@ -19,3 +19,28 @@
     }
   }]
 }
+
+{
+  "name":"rezende",
+  "valid_from": "2018-04-11 11:00:00 +0200",
+  "valid_until": "2018-04-12 11:29:00 +0200",
+  "policy": "best-effort",
+  "account_attributes":{
+    "urn": "urn:publicid:IDN+ch.fibre.org.br:4d36a873+slice+5fb02a15"
+  },
+  "components": [
+    {
+      "urn": "urn:publicid:IDN+ufrj.br+node+xen",
+      "sliver_infos": {
+        "exclusive": false,
+        "sliver_type": {
+          "label": "urn:publicid:IDN+ch.fibre.org.br:4d36a873+slice+5fb02a15+vm6",
+          "name": "virtual_machine",
+          "cpu_cores": 1,
+          "ram_in_mb": "1024",
+          "disk_image": "urn:publicid:IDN+ufrj.br+diskimage+ubuntu_14_04_lts"
+        }
+      }
+    }
+  ]
+}
