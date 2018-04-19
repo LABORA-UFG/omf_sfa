@@ -19,7 +19,6 @@ module OMF::SFA::AM
   class UnavailablePropertiesException < AMManagerException; end
   class MissingImplementationException < Exception; end
   class UknownLeaseException < Exception; end
-  class UnknownSubAuthorityException < OMF::SFA::AM::Rest::BadRequestException
   class CentralBrokerException < Exception
 
     def initialize(*exceptions)
@@ -92,7 +91,7 @@ module OMF::SFA::AM
         subauthorities = @subauthorities
       end
 
-      raise OMF::SFA::AM::UnknownResourceException.new 'No subauthorities found to make this request.' unless subauthorities.length > 0
+      raise OMF::SFA::AM::Rest::BadRequestException.new 'No subauthorities found to make this request.' unless subauthorities.length > 0
 
       # Recreate the request url
       pos_url = request_path
