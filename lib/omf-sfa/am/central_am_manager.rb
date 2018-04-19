@@ -170,10 +170,74 @@ module OMF::SFA::AM
       #  final_response[:resource] = final_response.delete(:resources).first
       #end
 
-      debug "===== Request RESULT: length = #{all_responses.length} ====="
-      debug final_response
-      debug "================================="
+      final_response[:resources] = aggregate_special_cases(final_response[:resources])
       final_response
+    end
+
+    def aggregate_special_cases(resources)
+      new_resources = []
+      first_key_managers = {}
+      resources.each { |resource|
+        if resource[:resource_type] == 'slice' || resource[:resource_type] == 'account'
+          first_key_managers[resource[:resource_type].to_sym] = {} if first_key_managers[resource[:resource_type].to_sym].nil?
+          included_res = {}
+          already_included = false
+          new_resources.each { |included_resource|
+            if included_resource[:name] == resource[:name]
+              included_res = included_resource
+              already_included = true
+            end
+          }
+
+          resource.each { |key, value|
+            if key == :component_manager_id
+              next
+            end
+
+            unless value.kind_of? Hash or value.kind_of? Array
+              if included_res[key.to_sym].nil?
+                first_key_managers[resource[:resource_type].to_sym][key.to_sym] = resource[:component_manager_id]
+              end
+              included_res[key.to_sym] = value if included_res[key.to_sym].nil? or value == included_res[key.to_sym]
+              if value != included_res[key.to_sym]
+                unless included_res[key.to_sym].kind_of? Array
+                  aux_array = []
+                  aux_array << {:data => included_res[key.to_sym], :component_manager_id => first_key_managers[resource[:resource_type].to_sym][key.to_sym]}
+                  included_res[key.to_sym] = aux_array
+                end
+                included_res[key.to_sym] << {:data => value, :component_manager_id => resource[:component_manager_id]}
+              end
+              next
+            end
+
+            included_res[key.to_sym] = [] if included_res[key.to_sym].nil?
+            if value.kind_of? Hash
+              value[:component_manager_id] = resource[:component_manager_id]
+              included_res[key.to_sym] << value
+            end
+
+            if value.kind_of? Array
+              value.each { |val|
+                included_res[key.to_sym] << {:data => val, :component_manager_id => resource[:component_manager_id]} unless val.kind_of? Hash
+                if val.kind_of? Hash
+                  val[:component_manager_id] = resource[:component_manager_id]
+                  included_res[key.to_sym] << val
+                end
+              }
+            end
+          }
+
+          unless already_included
+            included_res[:name] = resource[:name]
+            new_resources << included_res
+          end
+          next
+        end
+
+        new_resources << resource
+      }
+      info "KEY MANAGERS #{first_key_managers}"
+      new_resources
     end
 
     ### ACCOUNTS: creating, finding, and releasing accounts
