@@ -61,5 +61,22 @@ module OMF::SFA::Model
       val.reject! { |k, v| v.nil?}
       val
     end
+
+    def before_save
+      self.available = true if self.available.nil?
+      super
+    end
+
+    def available
+      true
+    end
+
+    def availability
+      true
+    end
+
+    def self.can_be_managed?
+      true
+    end
   end
 end
