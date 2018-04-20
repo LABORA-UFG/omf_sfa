@@ -177,7 +177,7 @@ module OMF::SFA::AM
       new_resources = []
       first_key_managers = {}
       resources.each { |resource|
-        if resource[:resource_type] == 'slice' || resource[:resource_type] == 'account'
+        if resource[:resource_type] == 'slice' || resource[:resource_type] == 'account' || resource[:resource_type] == 'lease'
           first_key_managers[resource[:resource_type].to_sym] = {} if first_key_managers[resource[:resource_type].to_sym].nil?
           included_res = {}
           already_included = false

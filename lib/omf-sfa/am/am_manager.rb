@@ -440,7 +440,14 @@ module OMF::SFA::AM
           source_resource = model.where(resource_descr)
         end
         source_resource = source_resource.first
-        if !source_resource.nil? and source_resource.class.method_defined?(target_type)
+        if source_resource.kind_of? OMF::SFA::Model::Account and target_type.to_s.pluralize == 'leases'
+          target_resources = []
+          source_resource.resources.each { |res|
+            if res.resource_type == 'lease'
+              target_resources << res
+            end
+          }
+        elsif !source_resource.nil? and source_resource.class.method_defined?(target_type)
           target_resources = source_resource.send(target_type)
         else
           raise OMF::SFA::AM::Rest::BadRequestException.new "Invalid URL."
