@@ -134,6 +134,7 @@ module OMF::SFA::AM
             all_responses << am_return
           rescue Exception => ex
             all_responses << {
+                :resources => [],
                 :error => {
                     :message => ex.to_s,
                     :code => 500,
@@ -156,7 +157,7 @@ module OMF::SFA::AM
           final_response[:exception] << aux_ex
         end
         final_response[:exception] = sub_response[:exception] unless (sub_response[:exception].nil? or final_response[:exception].kind_of? Array)
-        final_response[:exception] << sub_response[:exception] if final_response[:exception].kind_of? Array
+        final_response[:exception] << sub_response[:exception] if final_response[:exception].kind_of? Array and !sub_response[:exception].nil?
 
         # Join errors
         unless final_response[:error].nil? or final_response[:error].kind_of? Array
@@ -165,12 +166,14 @@ module OMF::SFA::AM
           final_response[:error] << aux_ex
         end
         final_response[:error] = sub_response[:error] unless (sub_response[:error].nil? or final_response[:error].kind_of? Array)
-        final_response[:error] << sub_response[:error] if final_response[:error].kind_of? Array
+        final_response[:error] << sub_response[:error] if final_response[:error].kind_of? Array and !sub_response[:error].nil?
 
         # Join resources
-        sub_response[:resources].each { |res|
-          final_response[:resources] << res
-        }
+        unless sub_response[:resources].nil?
+          sub_response[:resources].each { |res|
+            final_response[:resources] << res
+          }
+        end
       }
       # Remove list and set resource if the result is only one (Brokes CH keys integration)
       #if final_response[:resources].length == 1
