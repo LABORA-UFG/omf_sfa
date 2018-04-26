@@ -150,8 +150,16 @@ module OMF::SFA::AM
         raise "Expected Lease but got '#{lease.inspect}'"
       end
 
+      slice = OMF::SFA::Model::Slice.first({account_id: lease.account.id})
+      slice_components = if slice then slice.components else [] end
+      slice_component_ids = []
+      slice_components.each do |sc|
+        slice_component_ids << sc.id
+      end
       lease.components.each do |c|
-          c.destroy unless c.parent_id.nil? # Destroy all the children and leave the parent intact
+        c.destroy unless (c.parent_id.nil? or slice_component_ids.include? c.id)# Destroy all the children and leave the parent intact
+        c.remove_lease(lease) unless c.parent_id.nil?
+        lease.remove_component(c) unless c.parent_id.nil?
       end
       
       if lease.status == 'active'
@@ -176,8 +184,17 @@ module OMF::SFA::AM
       unless lease.is_a? OMF::SFA::Model::Lease
         raise "Expected Lease but got '#{lease.inspect}'"
       end
+
+      slice = OMF::SFA::Model::Slice.first({account_id: lease.account.id})
+      slice_components = if slice then slice.components else [] end
+      slice_component_ids = []
+      slice_components.each do |sc|
+        slice_component_ids << sc.id
+      end
       lease.components.each do |c|
-        c.destroy unless c.parent_id.nil? # Destroy all the children and leave the parent intact
+        c.destroy unless (c.parent_id.nil? or slice_component_ids.include? c.id)# Destroy all the children and leave the parent intact
+        c.remove_lease(lease) unless c.parent_id.nil?
+        lease.remove_component(c) unless c.parent_id.nil?
       end
 
       lease.destroy
@@ -408,7 +425,7 @@ module OMF::SFA::AM
       l_uuid = lease.uuid
       if t_now >= lease.valid_until
         release_lease(lease)
-        return
+        return false
       end
       if t_now >= lease.valid_from # the lease is active - create only the on_lease_end event
         lease.status = 'active'
@@ -433,6 +450,7 @@ module OMF::SFA::AM
         lease.save
         @liaison.on_lease_end(lease)
       end
+      return true
     end
 
     def update_lease_events_on_event_scheduler(lease)

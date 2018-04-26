@@ -106,13 +106,14 @@ module OMF::SFA::AM
       subauthorities.each do |subauth, subauth_opts|
         tds << Thread.new {
           url = "#{subauth_opts[:address]}/resources/#{pos_url}"
+          subauth_urn = "urn:publicid:IDN+#{subauth}+authority+cm"
+
           debug "Making #{method} request to subauth: #{subauth} - #{url}"
           http, request = prepare_request(method, url, authorizer, subauth_opts, body_params)
 
           begin
             out = http.request(request)
             response = JSON.parse(out.body, symbolize_names: true)
-            subauth_urn = "urn:publicid:IDN+#{subauth}+authority+cm"
             exception = response[:exception] || nil
             exception[:component_manager_id] = subauth_urn unless exception.nil?
             error = response[:error] || nil
@@ -131,8 +132,15 @@ module OMF::SFA::AM
             am_return[:exception] = exception unless exception.nil?
             am_return[:error] = error unless error.nil?
             all_responses << am_return
-          rescue Errno::ECONNREFUSED
-            error "connection to #{url} refused."
+          rescue Exception => ex
+            all_responses << {
+                :error => {
+                    :message => ex.to_s,
+                    :code => 500,
+                    :component_manager_id => subauth_urn
+                }
+            }
+            error "Could not finalize the request to URL: #{url} - #{ex.to_s}."
           end
         }
         tds.each {|td| td.join}
@@ -181,8 +189,15 @@ module OMF::SFA::AM
           first_key_managers[resource[:resource_type].to_sym] = {} if first_key_managers[resource[:resource_type].to_sym].nil?
           included_res = {}
           already_included = false
+          account_urn = if resource[:resource_type] == 'lease' then resource[:account][:urn] else nil end
           new_resources.each { |included_resource|
-            if included_resource[:name] == resource[:name]
+            is_equal = (included_resource[:name] == resource[:name] && resource[:resource_type] != 'lease')
+            r_valid_from = if resource[:resource_type] == 'lease' then resource[:valid_from] else nil end
+            r_valid_until = if resource[:resource_type] == 'lease' then resource[:valid_until] else nil end
+            ir_valid_from = if resource[:resource_type] == 'lease' then included_resource[:valid_from] else nil end
+            ir_valid_until = if resource[:resource_type] == 'lease' then included_resource[:valid_until] else nil end
+            is_lease_equal = (resource[:resource_type] == 'lease' && included_resource[:name] == resource[:name] && account_urn == included_resource[:account_urn] && r_valid_from == ir_valid_from && r_valid_until == ir_valid_until)
+            if is_equal || is_lease_equal
               included_res = included_resource
               already_included = true
             end
@@ -228,6 +243,7 @@ module OMF::SFA::AM
 
           unless already_included
             included_res[:name] = resource[:name]
+            included_res[:account_urn] = account_urn if resource[:resource_type] == 'lease'
             new_resources << included_res
           end
           next

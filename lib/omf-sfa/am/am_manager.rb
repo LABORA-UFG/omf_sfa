@@ -813,19 +813,14 @@ module OMF::SFA::AM
 
       debug "Resource '#{type_to_release}' doesn't have the handle_rest_resource_release method, proceeding with the default release proccess..."
 
-      if type_to_release == "Lease" #Lease is a unigue case, needs special treatment
-        resource = OMF::SFA::Model::Lease.first(resource_descr)
-        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown Lease with descr'#{resource_descr}'." unless resource
-        release_lease(resource, authorizer)
-      else
-        authorizer.can_release_resource?(resource_descr)
-        resource = eval("OMF::SFA::Model::#{type_to_release}").first(resource_descr)
-        raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource of type '#{type_to_release}' with descr'#{resource_descr}'." unless resource
-        if type_to_release == 'Account'
-          @liaison.close_account(resource)
-        end
-        resource.destroy
+      authorizer.can_release_resource?(resource_descr)
+      resource = eval("OMF::SFA::Model::#{type_to_release}").first(resource_descr)
+      raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown resource of type '#{type_to_release}' with descr'#{resource_descr}'." unless resource
+      if type_to_release == 'Account'
+        @liaison.close_account(resource)
       end
+      resource.destroy
+
       resource
     end
 

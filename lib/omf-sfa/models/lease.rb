@@ -20,7 +20,7 @@ module OMF::SFA::Model
 
     def self.include_nested_attributes_to_json
       sup = super
-      [:components].concat(sup)
+      [:components, :valid_from, :valid_until].concat(sup)
     end
 
     def before_save
@@ -56,6 +56,8 @@ module OMF::SFA::Model
           values[:components] << component.to_hash_brief
         end
       end
+      values[:valid_from] = Time.parse(self.valid_from.to_s).to_i if self.valid_from
+      values[:valid_until] =Time.parse(self.valid_until.to_s).to_i if self.valid_until
       values[:account] = self.account ? self.account.to_hash_brief : nil
       excluded = self.class.exclude_from_json
       values.reject! { |k, v| excluded.include?(k)}
@@ -64,6 +66,8 @@ module OMF::SFA::Model
 
     def to_hash_brief
       values[:account] = self.account.to_hash_brief unless self.account.nil?
+      values[:valid_from] = Time.parse(self.valid_from.to_s).to_i if self.valid_from
+      values[:valid_until] =Time.parse(self.valid_until.to_s).to_i if self.valid_until
       super
     end
 
@@ -113,6 +117,17 @@ module OMF::SFA::Model
       account = OMF::SFA::Model::Account.first(ac_desc)
       raise OMF::SFA::AM::Rest::UnknownResourceException.new "Account with description '#{ac_desc}' does not exist." if account.nil?
       raise OMF::SFA::AM::Rest::NotAuthorizedException.new "Account with description '#{ac_desc}' is closed." unless account.active?
+
+      # Check if have another reservation of this slice in the same time
+      p_valid_from = Time.parse(body_opts[:valid_from]) if body_opts[:valid_from].kind_of? String
+      p_valid_until = Time.parse(body_opts[:valid_until]) if body_opts[:valid_until].kind_of? String
+      p_valid_from = Time.at(p_valid_from.to_i) unless p_valid_from.nil?
+      p_valid_until = Time.at(p_valid_until.to_i) unless p_valid_until.nil?
+      leases = OMF::SFA::Model::Lease.where(account_id: account.id, status: ['active', 'accepted']) {
+        ((valid_from >= p_valid_from) & (valid_from < p_valid_until)) | ((valid_from <= p_valid_from) & (valid_until > p_valid_from))
+      }
+      raise OMF::SFA::AM::Rest::NotAuthorizedException.new "This Account already have an reservation at this slice " \
+                    "times, cancel the old reservation or try another time slot." unless leases.nil? || leases.empty?
 
       # Get components...
       components = []
@@ -191,6 +206,20 @@ module OMF::SFA::Model
       end
     end
 
+    def self.handle_rest_resource_release(body_opts, authorizer, scheduler)
+      query_opts = {}
+      query_opts[:urn] = body_opts[:urn] unless body_opts[:urn].nil?
+      query_opts[:name] = body_opts[:name] unless body_opts[:name].nil?
+      query_opts[:uuid] = body_opts[:uuid] unless body_opts[:uuid].nil?
+      lease = self.first(query_opts)
+
+      raise OMF::SFA::AM::Rest::UnknownResourceException.new "Unknown Lease with descr'#{query_opts}'." unless lease
+      raise InsufficientPrivilegesException unless authorizer.can_release_lease?(lease)
+      scheduler.release_lease(lease)
+      lease.destroy
+      return lease
+    end
+
     # Return the lease described by +lease_descr+.
     #
     # @param [Hash] properties of lease
@@ -226,7 +255,8 @@ module OMF::SFA::Model
 
       lease = self.create(lease_descr)
       raise OMF::SFA::AM::UnavailableResourceException.new "Cannot create '#{lease_descr.inspect}'" unless lease
-      scheduler.add_lease_events_on_event_scheduler(lease)
+      check_lease = scheduler.add_lease_events_on_event_scheduler(lease)
+      raise OMF::SFA::AM::UnavailableResourceException.new "Cannot create '#{lease_descr.inspect}'" unless check_lease === true
       scheduler.list_all_event_scheduler_jobs
       lease
     end
