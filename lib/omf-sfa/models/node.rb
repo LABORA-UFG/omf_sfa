@@ -96,7 +96,10 @@ module OMF::SFA::Model
         value[:status] = self.sliver_type.status if self.sliver_type.status
         value[:ip_address] = self.sliver_type.ip_address if self.sliver_type.ip_address
         value[:mac_address] = self.sliver_type.mac_address if self.sliver_type.mac_address
-        value[:hypervisor_interfaces] = self.parent.interfaces if self.parent
+        if self.parent
+          parent = OMF::SFA::Model::Node.first({:uuid => self.parent.uuid})
+          value[:hypervisor_interfaces] = parent.interfaces if parent
+        end
       end
       value
     end
