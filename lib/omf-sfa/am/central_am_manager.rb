@@ -986,7 +986,8 @@ module OMF::SFA::AM
       uri              = URI.parse(url)
       http             = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl     = true
-      http.read_timeout = 500
+      http.read_timeout = 30
+      http.open_timeout = 2
       http.cert        = OpenSSL::X509::Certificate.new(pem) unless type == "Get"
       http.key         = OpenSSL::PKey::RSA.new(pkey) unless type == "Get"
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE

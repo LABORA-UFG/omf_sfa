@@ -189,8 +189,8 @@ module OMF::SFA::Model
           if comp[:clone_resource] === true
             c = scheduler.create_child_resource({uuid: comp.uuid, account_id: account.id},
                                                 comp[:type].to_s.split('::').last, comp[:sliver_infos])
+            comps << c
           end
-          comps << c
           unless scheduler.lease_component(lease, c)
             scheduler.delete_lease(lease)
             comps.each do |release_resource|
