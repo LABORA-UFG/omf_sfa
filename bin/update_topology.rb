@@ -246,16 +246,44 @@ OmfCommon.init(op_mode, opts) do |el|
           link_names = []
           interfaces_urns = []
 
+          link_to_noc = flowvisor_links.collect {|link|
+            dpid_noc = nil
+            equal = flowvisor_links.select {|lk|
+              lk[:dstDPID] == link[:srcDPID] and lk[:dstPort] == link[:srcPort]
+            }
+            if equal.empty?
+              src_equal = flowvisor_links.select {|lk|
+                link[:srcDPID] == lk[:srcDPID] or link[:srcDPID] == lk[:dstDPID]
+              }
+              dpid_noc = link[:srcDPID] if src_equal.size <= 1
+              dst_equal = flowvisor_links.select {|lk|
+                link[:dstDPID] == lk[:srcDPID] or link[:dstDPID] == lk[:dstDPID]
+              }
+              dpid_noc = link[:dstDPID] if dst_equal.size <= 1
+            end
+            dpid_noc
+          }.compact
+
+          puts "DPID_NOC = #{link_to_noc.compact}"
+
+          if domain != "noc.fibre.org.br"
+            flowvisor_links.delete_if {|link|
+              equal = flowvisor_links.select {|lk|
+                lk[:dstDPID] == link[:srcDPID] and lk[:dstPort] == link[:srcPort]
+              }
+              equal.empty?
+            }
+          end
+
           flowvisor_links.each {|link|
-            link_name1 = "$fv_#{link[:srcDPID]}_#{link[:srcPort]}_#{link[:dstDPID]}_#{link[:dstPort]}".parameterize.underscore
-            link_name2 = "$fv_#{link[:dstDPID]}_#{link[:dstPort]}_#{link[:srcDPID]}_#{link[:srcPort]}".parameterize.underscore
-            link_names.push(link_name1)
-            link_names.push(link_name2)
+            link_name1 = "fv_#{link[:srcDPID]}_#{link[:srcPort]}_#{link[:dstDPID]}_#{link[:dstPort]}".parameterize.underscore
+            link_name2 = "fv_#{link[:dstDPID]}_#{link[:dstPort]}_#{link[:srcDPID]}_#{link[:srcPort]}".parameterize.underscore
 
             # Look for both links, because they are the same, just in opposite direction.
             # If one of the links is registered, we go to the next.
+            link_names.push(link_name1)
             next if broker_links_names.include?(link_name1) or broker_links_names.include?(link_name2)
-            broker_links_names.push(link_name1)
+            next if link_names.include?(link_name2)
 
             new_link = {
                 :name => "#{link_name1}",
@@ -268,7 +296,7 @@ OmfCommon.init(op_mode, opts) do |el|
 
           # Remove old links
           deprecated_links.each {|link_name|
-            next unless link_name.starts_with? "$fv_"
+            next unless link_name.starts_with? "fv_"
             link_desc = {
                 :urn => "urn:publicid:IDN+#{domain}+link+#{link_name}"
             }
