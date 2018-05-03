@@ -97,7 +97,7 @@ end
 rest = op.parse(ARGV) || []
 
 def delete_resources_with_rest(url, res_desc, pem, key, ch_key)
-  puts "\n\nDelete links through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
+  puts "Delete links through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -118,7 +118,7 @@ def delete_resources_with_rest(url, res_desc, pem, key, ch_key)
 end
 
 def list_resources_with_rest(url, res_desc, pem, key, ch_key)
-  puts "\n\nList #{res_desc} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
+  puts "List #{res_desc} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -141,7 +141,7 @@ def list_resources_with_rest(url, res_desc, pem, key, ch_key)
 end
 
 def update_resource_with_rest(url, type, res_desc, pem, key, ch_key)
-  puts "\n\nUpdate #{type} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
+  puts "Update #{type} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -162,7 +162,7 @@ def update_resource_with_rest(url, type, res_desc, pem, key, ch_key)
 end
 
 def create_resource_with_rest(url, type, res_desc, pem, key, ch_key)
-  puts "\n\nCreate #{type} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
+  puts "Create #{type} through REST.\nURL: #{url}\nRESOURCE DESCRIPTION: \n#{res_desc}\n\n"
 
   uri = URI.parse(url)
   pem = File.read(pem)
@@ -246,17 +246,28 @@ OmfCommon.init(op_mode, opts) do |el|
           link_names = []
           interfaces_urns = []
 
+          if domain == "noc.fibre.org.br"
+            flowvisor_links.delete_if {|link|
+              equal = flowvisor_links.select {|lk|
+                lk[:dstDPID] == link[:srcDPID] and lk[:dstPort] == link[:srcPort]
+              }
+              equal.empty?
+            }
+          end
+
           flowvisor_links.each {|link|
-            link_name = "$fv_#{link[:srcDPID]}_#{link[:srcPort]}_#{link[:dstDPID]}_#{link[:dstPort]}".parameterize.underscore
+            link_name1 = "fv_#{link[:srcDPID]}_#{link[:srcPort]}_#{link[:dstDPID]}_#{link[:dstPort]}".parameterize.underscore
+            link_name2 = "fv_#{link[:dstDPID]}_#{link[:dstPort]}_#{link[:srcDPID]}_#{link[:srcPort]}".parameterize.underscore
 
             # Look for both links, because they are the same, just in opposite direction.
             # If one of the links is registered, we go to the next.
-            next if broker_links_names.include?(link_name) or link_names.include?(link_name)
-            link_names.push(link_name)
+            link_names.push(link_name1)
+            next if broker_links_names.include?(link_name1) or broker_links_names.include?(link_name2)
+            next if link_names.include?(link_name2)
 
             new_link = {
-                :name => "#{link_name}",
-                :urn => "urn:publicid:IDN+#{domain}+link+#{link_name}"
+                :name => "#{link_name1}",
+                :urn => "urn:publicid:IDN+#{domain}+link+#{link_name1}"
             }
             links_properties.push(new_link)
           }
@@ -265,7 +276,7 @@ OmfCommon.init(op_mode, opts) do |el|
 
           # Remove old links
           deprecated_links.each {|link_name|
-            next unless link_name.starts_with? "$fv_"
+            next unless link_name.starts_with? "fv_"
             link_desc = {
                 :urn => "urn:publicid:IDN+#{domain}+link+#{link_name}"
             }
@@ -289,15 +300,12 @@ OmfCommon.init(op_mode, opts) do |el|
           interfaces_urns.each {|urn|
             url = "#{resource_url}/interfaces/#{urn}/links"
             interface_name = urn.split("interface_")[1]
-            ralated_links = links_properties.select {|link|
+            ralated_link = links_properties.select {|link|
               not /(?:#{interface_name}$|#{interface_name}_)/.match(link[:name]).nil?
             }
+            puts "Adding link #{ralated_link[0]} to interface = #{interface_name}"
 
-            for ralated_link in ralated_links
-              puts "Adding link #{ralated_link} to interface = #{interface_name}"
-
-              update_resource_with_rest(url, "interfaces", ralated_link, @pem, @pkey, ch_key)
-            end
+            update_resource_with_rest(url, "interfaces", ralated_link[0], @pem, @pkey, ch_key)
           }
 
           puts 'done.'
