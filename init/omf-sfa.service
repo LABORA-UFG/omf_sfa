@@ -1,0 +1,15 @@
+# Systemd broker startup service
+[Unit]
+Description=omf-sfa reservation Broker
+After=syslog.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/omf-sfa.pid
+WorkingDirectory=/root/omf/omf_sfa
+ExecStartPre=/bin/rm -f /var/run/omf-sfa.pid
+ExecStart=/usr/bin/ruby -I lib/ lib/omf-sfa/am/am_server.rb start
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
