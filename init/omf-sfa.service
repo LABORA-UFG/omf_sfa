@@ -6,9 +6,9 @@ After=syslog.target
 [Service]
 Type=forking
 PIDFile=/var/run/omf-sfa.pid
-WorkingDirectory=/root/omf/omf_sfa
+WorkingDirectory=/root/omf_sfa
 ExecStartPre=/bin/rm -f /var/run/omf-sfa.pid
-ExecStart=/usr/bin/ruby -I /root/omf/omf_sfa/lib/ /root/omf/omf_sfa/lib/omf-sfa/am/am_server.rb start
+ExecStart=/usr/local/bin/ruby -I /root/omf_sfa/lib/ /root/omf_sfa/lib/omf-sfa/am/am_server.rb start
 Restart=on-abort
 
 [Install]
