@@ -134,14 +134,14 @@ module OMF::SFA::Model
       nil_account_id = scheduler.get_nil_account().id
       if body_opts[:use_slice_components] === true
         slice = OMF::SFA::Model::Slice.first({account_id: account.id})
+        raise OMF::SFA::AM::Rest::BadRequestException.new "You cannot use the option ':use_slice_components' for account '#{account.urn}'," \
+                          "because this account does not have a slice" unless slice
         components = slice.components
         components.each do |comp|
           if comp.account.id == nil_account_id
             comp[:clone_resource] = true
           end
         end
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Your can't use slice components of account '#{account.urn}'" \
-                          "because it have not a slice" unless slice
       else
         comps = body_opts[:components] || body_opts[:components_attributes]
         not_founded_components = []

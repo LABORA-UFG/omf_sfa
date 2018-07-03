@@ -1,6 +1,6 @@
 require 'omf_common'
 require 'omf-sfa/am/am_manager'
-require 'omf-sfa/am/default_am_liaison'
+require 'omf-sfa/am/nitos_am_liaison'
 require "net/https"
 require "uri"
 require 'json'
@@ -14,11 +14,12 @@ module OMF::SFA::AM
 
   # This class implements the AM Liaison
   #
-  class LaboraAMLiaison < DefaultAMLiaison
+  class FibreAMLiaison < NitosAMLiaison
 
     def initialize(opts)
       super
       @default_sliver_type = OMF::SFA::Model::SliverType.find(urn: @config[:provision][:default_sliver_type_urn])
+      @pubsub = OMF::SFA::AM::AMServer.pubsub_config
       @rest_end_points = @config[:REST_end_points]
     end
 
@@ -61,7 +62,29 @@ module OMF::SFA::AM
     end
 
     def on_lease_end(lease)
-      warn "Am liaison: on_lease_end: Not implemented."
+      debug "FibreAMLiaison: on_lease_end: #{lease.inspect}"
+      for component in lease.components
+        if component.type == "OMF::SFA::Model::Node" and component.account_id != 2
+          debug "Component: #{component.to_hash}"
+          sliver_type = component.sliver_type
+          if sliver_type
+            vm_topic = "#{vm_topic}fed-#{@pubsub[:server].gsub('.', '-')}-" if @pubsub[:federate]
+            vm_topic = "#{vm_topic}#{sliver_type.label}"
+            stop_vm(vm_topic)
+          end
+        end
+      end
+    end
+
+    def stop_vm(vm_topic)
+      OmfCommon.comm.subscribe(vm_topic) do |vm_rc|
+        debug "Stopping VM #{vm_topic}"
+        unless vm_rc.error?
+          vm_rc.on_subscribed do
+            vm_rc.configure(action: :stop)
+          end
+        end
+      end
     end
 
     def provision(leases)

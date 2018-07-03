@@ -685,7 +685,7 @@ module OMF::SFA::AM
           return resource
         end
       rescue => ex
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Resource type not exists: '#{type_to_create}'"
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Problem to create the resource. Reason: #{ex.reason}"
       end
 
       debug "Resource '#{type_to_create}' doesn't have the handle_rest_resource_creation method, proceeding with the default creation proccess..."
