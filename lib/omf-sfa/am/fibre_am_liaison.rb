@@ -20,6 +20,7 @@ module OMF::SFA::AM
       super
       @default_sliver_type = OMF::SFA::Model::SliverType.find(urn: @config[:provision][:default_sliver_type_urn])
       @pubsub = OMF::SFA::AM::AMServer.pubsub_config
+      @nil_account = opts[:nil_account]
       @rest_end_points = @config[:REST_end_points]
     end
 
@@ -64,7 +65,7 @@ module OMF::SFA::AM
     def on_lease_end(lease)
       debug "FibreAMLiaison: on_lease_end: #{lease.inspect}"
       for component in lease.components
-        if component.type == "OMF::SFA::Model::Node" and component.account_id != 2
+        if component.type == "OMF::SFA::Model::Node" and component.account_id != @nil_account.id
           debug "Component: #{component.to_hash}"
           sliver_type = component.sliver_type
           if sliver_type

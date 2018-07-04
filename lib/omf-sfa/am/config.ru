@@ -33,6 +33,7 @@ am_sched = am_mgr.get_scheduler
 am_liaison = nil
 if opts[:am_liaison]
   require opts[:am_liaison][:require]
+  opts[:nil_account] = am_sched.get_nil_account()
   am_liaison = eval(opts[:am_liaison][:constructor]).new(opts)
 else
   require 'omf-sfa/am/default_am_liaison'
