@@ -382,7 +382,8 @@ OmfCommon.init(op_mode, opts) do |el|
             update_resource_with_rest(url, "interfaces", ralated_link[0], @pem, @pkey, ch_key)
           }
 
-          register_from_file(domain, resource_url)
+
+          register_from_file(domain, resource_url) if @manual_links_path
 
           puts 'done.'
           comm.disconnect
