@@ -271,8 +271,8 @@ def register_from_file(domain, resource_url)
   File.open(@manual_links_path, "r") do |infile|
     while (line = infile.gets)
       points_to_connect = line.split("|")
-      first_point = points_to_connect[0].split(":")
-      second_point = points_to_connect[1].split(":")
+      first_point = points_to_connect[0].split("::")
+      second_point = points_to_connect[1].split("::")
       first_interface_info = save_interfaces(first_point, domain, resource_url)
       second_interface_info = save_interfaces(second_point, domain, resource_url)
 

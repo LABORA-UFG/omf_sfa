@@ -14,4 +14,4 @@
   :op_mode: development
 :update_topology_args:
   :flowvisor_topic: "fed-fibre-ufrgs-br-flowvisor-fw"
-  :@manual_links_path: "./manual_links_example.txt"
+  :@manual_links_path: "./manual_links.txt"
