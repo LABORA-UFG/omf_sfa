@@ -2,17 +2,16 @@
   :entity_cert: /root/.omf/user_cert.pem
   :entity_key: /root/.omf/user_cert.pkey
 :rest:
-  :server: broker
+  :server: fibre.ufrgs.br
   :port: 8001
-  :domain: ufg.br
+  :domain: fibre.ufrgs.br
   :ch_key: /root/.omf/ch_key.key
 :amqp:
-  :server: 192.168.1.9
+  :server: fibre.ufrgs.br
   :username: testbed
-  :password: lab251
+  :password: testbed
   :topic: am_controller
   :op_mode: development
-:flowvisor_rc_args:
-  :topic: "vinicius-fw"
-:images_cleaner:
-  :days: 7
+:update_topology_args:
+  :flowvisor_topic: "fed-fibre-ufrgs-br-flowvisor-fw"
+  :@manual_links_path: "./manual_links_example.txt"
