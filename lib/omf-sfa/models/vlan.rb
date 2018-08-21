@@ -30,5 +30,10 @@ module OMF::SFA::Model
     #   [:openflow_switch].concat(sup)
     # end
 
+    def self.handle_rest_get_resource(resource_descr)
+      # TODO get vlans associated with slices
+      #slices = OMF::SFA::Model::Slices.where({:account_id => resource_descr[:account_id]})
+      self.where(resource_descr)
+    end
   end
 end

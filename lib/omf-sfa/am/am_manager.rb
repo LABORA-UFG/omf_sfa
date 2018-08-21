@@ -477,7 +477,13 @@ module OMF::SFA::AM
     def find_all_resources(resource_descr, resource_type, authorizer)
       debug "find_resources: descr: '#{resource_descr.inspect}'"
       if resource_descr.kind_of? Hash
-        resources = eval("OMF::SFA::Model::#{resource_type.classify}").where(resource_descr)
+        can_handle = eval("OMF::SFA::Model::#{resource_type.classify}").respond_to? :handle_rest_get_resource
+        if can_handle
+          cls = eval("OMF::SFA::Model::#{resource_type.classify}")
+          resources = cls.handle_rest_get_resource(resource_descr)
+        else
+          resources = eval("OMF::SFA::Model::#{resource_type.classify}").where(resource_descr)
+        end
       else
         raise FormatException.new "Unknown resource description type '#{resource_descr.class}' (#{resource_descr})"
       end
