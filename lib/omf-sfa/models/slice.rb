@@ -112,6 +112,11 @@ module OMF::SFA::Model
 
       # Insert new components
       slice = self.insert_components_to_slice(slice, slice_model_resources, vms, scheduler)
+
+      # Remove all future leases related to this slice
+      leases = OMF::SFA::Model::Lease.where(account_id: account.id, status: ['active', 'accepted'])
+      leases.each {|lease| lease.delete}
+
       slice
     end
 
