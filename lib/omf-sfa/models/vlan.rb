@@ -32,10 +32,12 @@ module OMF::SFA::Model
 
     def self.handle_rest_get_resource(resource_descr)
       # TODO get vlans associated with slices
-      valid_accounts = OMF::SFA::Model::Account.where{valid_until >= '2018-05-20'}.map {|s| s.id}
+      now = Time.now.strftime("%Y-%m-%d %H:%M:%S")
+      debug "NOW IS : #{now}"
+      valid_accounts = OMF::SFA::Model::Account.where{valid_until >= now}.map {|s| s.id}
       slices = OMF::SFA::Model::Slice.where(account_id: valid_accounts)
 
-      vlans = OMF::SFA::Model::Vlan.all().map {|vlan| vlan}
+      vlans = OMF::SFA::Model::Vlan.where(account_id: 2).map {|vlan| vlan}
       for slice in slices
         components = slice.components
         for component in components
