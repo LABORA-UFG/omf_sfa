@@ -32,7 +32,8 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "blather", "~> 1.0.0"
 #
   s.add_runtime_dependency "equivalent-xml", "~> 0.2.9"
-  s.add_runtime_dependency "rspec", "~> 2.11.0"
+  s.add_runtime_dependency "rspec", "~> 3.5.0"
+  #s.add_runtime_dependency "rspec", "~> 2.11.0"
   s.add_runtime_dependency "activesupport"
   s.add_runtime_dependency "rack-rpc", "~> 0.0.12"
   s.add_runtime_dependency "data_mapper", "~> 1.2.0"
@@ -41,7 +42,8 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "omf_rc", "~> 6.2.4"
   s.add_runtime_dependency "eventmachine", "~> 1.2.3"
   s.add_runtime_dependency "em-minitest-spec", "~> 1.1.1"
-  s.add_runtime_dependency "sequel", "~> 4.37.0"
+  s.add_runtime_dependency "sequel", "= 5.3.0"
   s.add_runtime_dependency "rufus-scheduler", "~> 3.0.9"
   s.add_runtime_dependency "sqlite3", "~> 1.3.10"
+  #s.add_runtime_dependency "dm-postgres-adapter"
 end

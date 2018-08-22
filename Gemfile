@@ -6,6 +6,7 @@ gem 'rake', '12.0.0'
 group :development, :test do
   #gem 'ruby-debug-ide'
   gem 'debase'
+  gem 'pg'
   # gem 'byebug'
 end
 
