@@ -1,3 +1,3 @@
 module OMF; module SFA
-  VERSION = "6.0.0.pre.1"
+  VERSION = "6.3.0"
 end; end
