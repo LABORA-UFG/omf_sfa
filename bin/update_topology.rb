@@ -228,16 +228,15 @@ def create_of_switch_and_interfaces(broker_of_switches_dpids, ch_key, domain, in
   interfaces_urns.push(interface_urn)
 end
 
-def save_interfaces(point_to_connect, domain, resource_url)
-  point = point_to_connect.split(":")
-  point_urn = point[0]
-  point_port = point[1]
+def save_interfaces(point_to_connect, domain, resource_url, ch_key)
+  point_urn = point_to_connect[0]
+  point_port = point_to_connect[1]
 
-  is_of_switch = point_urn.includes? "+openflow_switch+"
+  is_of_switch = point_urn.include? "+openflow_switch+"
 
   if is_of_switch
     of_switch_dpid = point_urn.split("fv_of_switch_")
-    point_port = "#{of_switch_dpid}_#{point_port}"
+    point_port = "#{of_switch_dpid[1]}_#{point_port}"
   end
 
   interface_properties = {
@@ -253,7 +252,7 @@ def save_interfaces(point_to_connect, domain, resource_url)
   return interface_properties
 end
 
-def link_interfaces(first_point_info, second_point_info, domain, resource_url)
+def link_interfaces(first_point_info, second_point_info, domain, resource_url, ch_key)
   link_name = "xen_#{domain}_#{first_point_info[:name]}_#{second_point_info[:name]}".parameterize.underscore
   link_properties = {
       :name => link_name,
@@ -262,21 +261,21 @@ def link_interfaces(first_point_info, second_point_info, domain, resource_url)
   create_resource_with_rest("#{resource_url}/links", "links", link_properties, @pem, @pkey, ch_key)
 
   url = "#{resource_url}/interfaces/#{first_point_info[:urn]}/links"
-  update_resource_with_rest(url, "interfaces", ralated_link[0], @pem, @pkey, ch_key)
+  update_resource_with_rest(url, "interfaces", link_properties, @pem, @pkey, ch_key)
   url = "#{resource_url}/interfaces/#{second_point_info[:urn]}/links"
-  update_resource_with_rest(url, "interfaces", ralated_link[0], @pem, @pkey, ch_key)
+  update_resource_with_rest(url, "interfaces", link_properties, @pem, @pkey, ch_key)
 end
 
-def register_from_file(domain, resource_url)
+def register_from_file(domain, resource_url, ch_key)
   File.open(@manual_links_path, "r") do |infile|
     while (line = infile.gets)
       points_to_connect = line.split("|")
       first_point = points_to_connect[0].split("::")
       second_point = points_to_connect[1].split("::")
-      first_interface_info = save_interfaces(first_point, domain, resource_url)
-      second_interface_info = save_interfaces(second_point, domain, resource_url)
+      first_interface_info = save_interfaces(first_point, domain, resource_url, ch_key)
+      second_interface_info = save_interfaces(second_point, domain, resource_url, ch_key)
 
-      link_interfaces(first_interface_info, second_interface_info, domain, resource_url)
+      link_interfaces(first_interface_info, second_interface_info, domain, resource_url, ch_key)
     end
   end
 end
@@ -383,7 +382,7 @@ OmfCommon.init(op_mode, opts) do |el|
           }
 
 
-          register_from_file(domain, resource_url) if @manual_links_path
+          register_from_file(domain, resource_url, ch_key) if @manual_links_path
 
           puts 'done.'
           comm.disconnect
