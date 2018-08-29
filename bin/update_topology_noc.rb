@@ -55,8 +55,8 @@ op.on '-c', '--conf FILE', "Configuration file with communication info" do |file
     exit
   end
 
-  if x = @y[:flowvisor_rc_args]
-    @flowvisor_rc_topic = x[:topic]
+  if x = @y[:update_topology_args]
+    @flowvisor_rc_topic = x[:flowvisor_topic]
   else
     error "Flowvisor RC details was not found in the configuration file"
     exit
