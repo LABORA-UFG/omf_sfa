@@ -269,6 +269,7 @@ end
 def register_from_file(domain, resource_url, ch_key)
   File.open(@manual_links_path, "r") do |infile|
     while (line = infile.gets)
+      line = line.strip
       points_to_connect = line.split("|")
       first_point = points_to_connect[0].split("::")
       second_point = points_to_connect[1].split("::")
