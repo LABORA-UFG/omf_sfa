@@ -12,7 +12,7 @@ The Flowvisor address and the Broker URL are required as input.
 }
 
 MAC_SIZE = 17 # number of characters in a MAC address
-NOC_DOMAIN = "noc.fibre.org.br"
+NOC_DOMAIN = "fibre.noc.br"
 
 begin; require 'json/jwt'; rescue Exception; end
 

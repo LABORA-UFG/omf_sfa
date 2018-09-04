@@ -34,6 +34,7 @@ resource_url = nil
 base_url = nil
 domain = nil
 ch_key = nil
+operation = nil
 resource_type = :links
 op_mode = :development
 @flowvisor_rc_topic = nil
@@ -92,6 +93,10 @@ op.on '-c', '--conf FILE', "Configuration file with communication info" do |file
     warn "authorization is disabled."
     exit if comm_type == "REST"
   end
+end
+
+op.on '-o', '--o DELETE|UPDATE', "Choose the operation to do" do |op|
+  operation = op
 end
 
 rest = op.parse(ARGV) || []
@@ -220,96 +225,111 @@ def create_of_switch_and_interfaces(broker_of_switches_dpids, ch_key, domain, in
   interfaces_urns.push(interface_urn)
 end
 
-OmfCommon.init(op_mode, opts) do |el|
-  OmfCommon.comm.on_connected do |comm|
-    if authorization?
-      OmfCommon::Auth::CertificateStore.instance.register_default_certs(@trusted_roots)
-      @entity.resource_id = OmfCommon.comm.local_topic.address
-      OmfCommon::Auth::CertificateStore.instance.register(@entity)
-    end
-    comm.subscribe(@flowvisor_rc_topic) do |flowvisor|
-      flowvisor.request([:links]) do |msg|
-        unless msg.itype == "ERROR"
-          flowvisor_links = if msg.properties[:links] then msg.properties[:links] else [] end
-          puts "Flowvisor Links: #{flowvisor_links}"
+def delete_all_links(links, domain, base_url, ch_key)
+  for link in links
+    next unless link['name'].starts_with? "fv_"
+    link_desc = {
+        :urn => "urn:publicid:IDN+#{domain}+link+#{link['name']}"
+    }
+    delete_resources_with_rest("#{base_url}/links", link_desc, @pem, @pkey, ch_key)
+  end
+end
 
-          broker_links = list_resources_with_rest("#{resource_url}/links", "links", @pem, @pkey, ch_key)
-          interfaces = list_resources_with_rest("#{resource_url}/interfaces", "interfaces", @pem, @pkey, ch_key)
-          of_switches = list_resources_with_rest("#{resource_url}/openflow_switch", "openflow_switches", @pem, @pkey, ch_key)
+if operation == "DELETE"
+  broker_links = list_resources_with_rest("#{resource_url}/links", "links", @pem, @pkey, ch_key)
+  delete_all_links(broker_links, domain, base_url, ch_key)
+else
+  OmfCommon.init(op_mode, opts) do |el|
+    OmfCommon.comm.on_connected do |comm|
+      if authorization?
+        OmfCommon::Auth::CertificateStore.instance.register_default_certs(@trusted_roots)
+        @entity.resource_id = OmfCommon.comm.local_topic.address
+        OmfCommon::Auth::CertificateStore.instance.register(@entity)
+      end
+      comm.subscribe(@flowvisor_rc_topic) do |flowvisor|
+        flowvisor.request([:links]) do |msg|
+          unless msg.itype == "ERROR"
+            flowvisor_links = if msg.properties[:links] then msg.properties[:links] else [] end
+            puts "Flowvisor Links: #{flowvisor_links}"
 
-          puts "Broker Current Links = #{broker_links}"
+            broker_links = list_resources_with_rest("#{resource_url}/links", "links", @pem, @pkey, ch_key)
+            interfaces = list_resources_with_rest("#{resource_url}/interfaces", "interfaces", @pem, @pkey, ch_key)
+            of_switches = list_resources_with_rest("#{resource_url}/openflow_switch", "openflow_switches", @pem, @pkey, ch_key)
 
-          broker_links_names = broker_links.collect {|link| link["name"]}
-          broker_of_switches_dpids = of_switches.collect {|of_switches| of_switches["datapathid"]}
+            puts "Broker Current Links = #{broker_links}"
 
-          links_properties = []
-          link_names = []
-          interfaces_urns = []
+            broker_links_names = broker_links.collect {|link| link["name"]}
+            broker_of_switches_dpids = of_switches.collect {|of_switches| of_switches["datapathid"]}
 
-          if domain == "noc.fibre.org.br"
-            flowvisor_links.delete_if {|link|
-              equal = flowvisor_links.select {|lk|
-                lk[:dstDPID] == link[:srcDPID] and lk[:dstPort] == link[:srcPort]
+            links_properties = []
+            link_names = []
+            interfaces_urns = []
+
+            if domain == "fibre.org.br"
+              flowvisor_links.delete_if {|link|
+                equal = flowvisor_links.select {|lk|
+                  lk[:dstDPID] == link[:srcDPID] and lk[:dstPort] == link[:srcPort]
+                }
+                equal.empty?
               }
-              equal.empty?
+            end
+
+            flowvisor_links.each {|link|
+              link_name1 = "fv_#{link[:srcDPID]}_#{link[:srcPort]}_#{link[:dstDPID]}_#{link[:dstPort]}".parameterize.underscore
+              link_name2 = "fv_#{link[:dstDPID]}_#{link[:dstPort]}_#{link[:srcDPID]}_#{link[:srcPort]}".parameterize.underscore
+
+              # Look for both links, because they are the same, just in opposite direction.
+              # If one of the links is registered, we go to the next.
+              link_names.push(link_name1)
+              next if broker_links_names.include?(link_name1) or broker_links_names.include?(link_name2)
+              next if link_names.include?(link_name2)
+
+              new_link = {
+                  :name => "#{link_name1}",
+                  :urn => "urn:publicid:IDN+#{domain}+link+#{link_name1}"
+              }
+              links_properties.push(new_link)
             }
+
+            deprecated_links = broker_links_names - link_names
+
+            # Remove old links
+            deprecated_links.each {|link_name|
+              next unless link_name.starts_with? "fv_"
+              link_desc = {
+                  :urn => "urn:publicid:IDN+#{domain}+link+#{link_name}"
+              }
+              delete_resources_with_rest("#{base_url}/links", link_desc, @pem, @pkey, ch_key)
+            }
+
+            # Create the switches if they don't exist
+            flowvisor_links.each {|link|
+              create_of_switch_and_interfaces(broker_of_switches_dpids, ch_key, domain, interfaces_urns, link[:srcDPID], link[:srcPort], resource_url)
+
+              create_of_switch_and_interfaces(broker_of_switches_dpids, ch_key, domain, interfaces_urns, link[:dstDPID], link[:dstPort], resource_url)
+            }
+
+            new_links = link_names - broker_links_names
+
+            unless new_links.empty?
+              create_resource_with_rest("#{resource_url}/links", "links", links_properties, @pem, @pkey, ch_key)
+            end
+
+            # Put the interfaces into links
+            interfaces_urns.each {|urn|
+              url = "#{resource_url}/interfaces/#{urn}/links"
+              interface_name = urn.split("interface_")[1]
+              ralated_link = links_properties.select {|link|
+                not /(?:#{interface_name}$|#{interface_name}_)/.match(link[:name]).nil?
+              }
+              puts "Adding link #{ralated_link[0]} to interface = #{interface_name}"
+
+              update_resource_with_rest(url, "interfaces", ralated_link[0], @pem, @pkey, ch_key)
+            }
+
+            puts 'done.'
+            comm.disconnect
           end
-
-          flowvisor_links.each {|link|
-            link_name1 = "fv_#{link[:srcDPID]}_#{link[:srcPort]}_#{link[:dstDPID]}_#{link[:dstPort]}".parameterize.underscore
-            link_name2 = "fv_#{link[:dstDPID]}_#{link[:dstPort]}_#{link[:srcDPID]}_#{link[:srcPort]}".parameterize.underscore
-
-            # Look for both links, because they are the same, just in opposite direction.
-            # If one of the links is registered, we go to the next.
-            link_names.push(link_name1)
-            next if broker_links_names.include?(link_name1) or broker_links_names.include?(link_name2)
-            next if link_names.include?(link_name2)
-
-            new_link = {
-                :name => "#{link_name1}",
-                :urn => "urn:publicid:IDN+#{domain}+link+#{link_name1}"
-            }
-            links_properties.push(new_link)
-          }
-
-          deprecated_links = broker_links_names - link_names
-
-          # Remove old links
-          deprecated_links.each {|link_name|
-            next unless link_name.starts_with? "fv_"
-            link_desc = {
-                :urn => "urn:publicid:IDN+#{domain}+link+#{link_name}"
-            }
-            delete_resources_with_rest("#{base_url}/links", link_desc, @pem, @pkey, ch_key)
-          }
-
-          # Create the switches if they don't exist
-          flowvisor_links.each {|link|
-            create_of_switch_and_interfaces(broker_of_switches_dpids, ch_key, domain, interfaces_urns, link[:srcDPID], link[:srcPort], resource_url)
-
-            create_of_switch_and_interfaces(broker_of_switches_dpids, ch_key, domain, interfaces_urns, link[:dstDPID], link[:dstPort], resource_url)
-          }
-
-          new_links = link_names - broker_links_names
-
-          unless new_links.empty?
-            create_resource_with_rest("#{resource_url}/links", "links", links_properties, @pem, @pkey, ch_key)
-          end
-
-          # Put the interfaces into links
-          interfaces_urns.each {|urn|
-            url = "#{resource_url}/interfaces/#{urn}/links"
-            interface_name = urn.split("interface_")[1]
-            ralated_link = links_properties.select {|link|
-              not /(?:#{interface_name}$|#{interface_name}_)/.match(link[:name]).nil?
-            }
-            puts "Adding link #{ralated_link[0]} to interface = #{interface_name}"
-
-            update_resource_with_rest(url, "interfaces", ralated_link[0], @pem, @pkey, ch_key)
-          }
-
-          puts 'done.'
-          comm.disconnect
         end
       end
     end
