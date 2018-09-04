@@ -234,7 +234,7 @@ if $config[:central_broker] && $config[:central_broker][:enabled]
   $config[:central_broker][:subauthorities].each do |subauthority|
     opts[:central_broker][:subauthorities][subauthority[:domain]] = {}
     opts[:central_broker][:subauthorities][subauthority[:domain]][:domain] = subauthority[:domain]
-    opts[:central_broker][:subauthorities][subauthority[:domain]][:address] = subauthority[:address]
+    opts[:central_broker][:subauthorities][subauthority[:domain]][:address] = subauthority[:address].gsub(/\/$/, "")
     opts[:central_broker][:subauthorities][subauthority[:domain]][:cert]    = subauthority[:cert]
     opts[:central_broker][:subauthorities][subauthority[:domain]][:key]     = subauthority[:key]
   end
