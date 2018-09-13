@@ -22,9 +22,11 @@ module OmfRc::ResourceProxy::AMController
       vm_desc = {:or => {}}
       if new_resource_options[:label]
         vm_desc[:or][:label] = new_resource_options[:label]
+        new_resource_options[:uid] = "am_controller_#{new_resource_options[:label]}"
       end
       if new_resource_options[:mac_address]
         vm_desc[:or][:mac_address] = new_resource_options[:mac_address]
+        new_resource_options[:uid] = "am_controller_#{new_resource_options[:mac_address]}"
       end
 
       begin
