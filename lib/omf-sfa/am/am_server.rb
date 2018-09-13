@@ -3,6 +3,7 @@ require 'rack'
 require 'rack/showexceptions'
 require 'thin'
 # require 'dm-migrations'
+require 'omf_common'
 require 'omf_common/lobject'
 require 'omf_common/load_yaml'
 require 'sequel'
@@ -13,8 +14,10 @@ require 'omf-sfa/am/am_manager'
 require 'omf-sfa/am/central_am_manager'
 require 'omf-sfa/am/am_scheduler'
 require 'omf-sfa/am/am_liaison'
+require 'hashie'
 
-$config = OMF::Common::YAML.load('omf-sfa-am', :path => [File.dirname(__FILE__) + '/../../../etc/omf-sfa'])[:omf_sfa_am]
+$config = Hashie::Mash.new(OmfCommon.load_yaml('omf-sfa-am', symbolize_keys: true, erb_process: true,
+                                 :path => [File.dirname(__FILE__) + '/../../../etc/omf-sfa'])[:omf_sfa_am])
 
 module OMF::SFA::AM
 
@@ -153,6 +156,7 @@ module OMF::SFA::AM
                 :url => "#{@@pubsub[:protocol]}://#{@@pubsub[:server]}",
                 :user => @@pubsub[:user],
                 :pass => @@pubsub[:password],
+                :local_address => @@pubsub[:local_address],
                 :auth => {}
             }) do |el|
              puts "Connected to the #{@@pubsub[:protocol].upcase}."
