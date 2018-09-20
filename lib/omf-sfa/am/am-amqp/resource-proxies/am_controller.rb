@@ -15,7 +15,7 @@ module OmfRc::ResourceProxy::AMController
 
   hook :before_create do |resource, new_resource_type, new_resource_options|
     if new_resource_type.to_sym == :virtual_machine
-      debug "Creating virtual machine with params #{new_resource_options}"
+      debug "Creating virtual machine with params #{new_resource_options.to_yaml}"
 
       # Checks if the resource exists
       # The user need to pass label or mac address of VM to find it.
@@ -26,11 +26,11 @@ module OmfRc::ResourceProxy::AMController
       end
       if new_resource_options[:mac_address]
         vm_desc[:or][:mac_address] = new_resource_options[:mac_address]
-        new_resource_options[:uid] = "am_controller_#{new_resource_options[:mac_address]}"
       end
 
       begin
-        @manager.find_resource(vm_desc, "sliver_type", @authorizer)
+        resource = @manager.find_resource(vm_desc, "sliver_type", @authorizer)
+        new_resource_options[:uid] = "am_controller_#{resource.label}" if new_resource_options[:mac_address]
       rescue Exception => error
         raise "Could not create virtual machine: #{error.to_s}"
       end
