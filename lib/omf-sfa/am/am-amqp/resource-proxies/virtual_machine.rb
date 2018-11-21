@@ -1,10 +1,10 @@
 require 'omf_rc'
 require 'omf_common'
 
-module OmfRc::ResourceProxy::VirtualMachine
+module OmfRc::ResourceProxy::VmInventory
   include OmfRc::ResourceProxyDSL
 
-  register_proxy :virtual_machine, :create_by => :am_controller
+  register_proxy :vm_inventory, :create_by => :am_controller
 
   property :vm_desc, access: :init_only
   property :label, access: :init_only

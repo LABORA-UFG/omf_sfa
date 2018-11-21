@@ -14,7 +14,7 @@ module OmfRc::ResourceProxy::AMController
   end
 
   hook :before_create do |resource, new_resource_type, new_resource_options|
-    if new_resource_type.to_sym == :virtual_machine
+    if new_resource_type.to_sym == :vm_inventory
       debug "Creating virtual machine with params #{new_resource_options.to_yaml}"
 
       # Checks if the resource exists
@@ -81,7 +81,7 @@ module OmfRc::ResourceProxy::AMController
 
   def handle_create_message(message, obj, response)
     # Makes default treatment (With some bonus :D) to some resources creation
-    if message[:type].to_sym == :virtual_machine
+    if message[:type].to_sym == :vm_inventory
       handle_create_with_options(message, obj, response)
       return
     end
