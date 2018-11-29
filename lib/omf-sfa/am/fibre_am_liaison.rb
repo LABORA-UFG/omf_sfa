@@ -43,7 +43,42 @@ module OMF::SFA::AM
     end
 
     def configure_keys(keys, account)
-      warn "Am liaison: configure_keys: Not implemented."
+      debug "configure_keys: keys:'#{keys.inspect}', account:'#{account.inspect}'"
+
+      new_keys = []
+      keys.each do |k|
+        if k.kind_of?(OMF::SFA::Model::Key)
+          new_keys << k.ssh_key unless new_keys.include?(k.ssh_key)
+        elsif k.kind_of?(String)
+          new_keys << k unless new_keys.include?(k)
+        end
+      end
+
+      OmfCommon.comm.subscribe('user_factory') do |user_rc|
+        unless user_rc.error?
+
+          user_rc.create(:user, hrn: 'existing_user', username: account.name) do |reply_msg|
+            if reply_msg.success?
+              u = reply_msg.resource
+
+              u.on_subscribed do
+
+                u.configure(auth_keys: new_keys) do |reply|
+                  if reply.success?
+                    release_proxy(user_rc, u)
+                  else
+                    error "Configuration of the public keys failed - #{reply[:reason]}"
+                  end
+                end
+              end
+            else
+              error ">>> Resource creation failed - #{reply_msg[:reason]}"
+            end
+          end
+        else
+          raise UnknownResourceException.new "Cannot find resource's pubsub topic: '#{user_rc.inspect}'"
+        end
+      end
     end
 
     def create_resource(resource, lease, component)
@@ -64,15 +99,45 @@ module OMF::SFA::AM
 
     def on_lease_end(lease)
       debug "FibreAMLiaison: on_lease_end: #{lease.inspect}"
+      slice = OMF::SFA::Model::Slice.first({account_id: lease.account.id})
+      domain = OMF::SFA::Model::Constants.default_domain.gsub('.', '-')
+      fed_prefix = if @pubsub[:federate] then "fed-#{domain}-" else "" end
+
       for component in lease.components
         if component.type == "OMF::SFA::Model::Node" and component.account_id != @nil_account.id
           debug "Component: #{component.to_hash}"
           sliver_type = component.sliver_type
+          fed_prefix = if @pubsub[:federate] then "fed-#{@pubsub[:server].gsub('.', '-')}-" else "" end
           if sliver_type
-            vm_topic = "#{vm_topic}fed-#{@pubsub[:server].gsub('.', '-')}-" if @pubsub[:federate]
-            vm_topic = "#{vm_topic}#{sliver_type.label}"
+            vm_topic = "#{fed_prefix}#{sliver_type.label}"
             stop_vm(vm_topic)
           end
+        end
+      end
+
+      slice_name = "#{fed_prefix}#{slice.name}_#{domain}"
+      slice_name = convert_to_valid_variable_name(slice_name)
+
+      release_flowvisor_slice(slice_name)
+    end
+
+    def convert_to_valid_variable_name(name)
+      # Remove invalid characters
+      name = re.sub(/[^0-9a-zA-Z_\-\.]/, '', name)
+
+      name = name.gsub('-', '_')
+      name = name.gsub('.', '_')
+
+      # Remove leading characters until we find a letter or underscore
+      name = re.gsub(/^[^a-zA-Z_]+/, '', name)
+      name
+    end
+
+    def release_flowvisor_slice(slice)
+      OmfCommon.comm.subscribe(slice) do |slice_topic|
+        debug "Releasing slice #{slice}"
+        slice_topic.on_subscribed do
+          slice_topic.release_self()
         end
       end
     end
@@ -83,6 +148,32 @@ module OMF::SFA::AM
         unless vm_rc.error?
           vm_rc.on_subscribed do
             vm_rc.configure(action: :stop)
+          end
+        end
+      end
+    end
+
+    def update_vms_state(lease)
+      debug "FibreAMLiaison: update_vms_state: #{lease.inspect}"
+      for component in lease.components
+        if component.type == "OMF::SFA::Model::Node" and component.account_id != @nil_account.id
+          sliver_type = component.sliver_type
+          if sliver_type
+            debug "Component: #{component.to_hash}"
+            vm_topic = "#{vm_topic}fed-#{@pubsub[:server].gsub('.', '-')}-" if @pubsub[:federate]
+            vm_topic = "#{vm_topic}#{sliver_type.label}"
+            _update_vms_state(vm_topic)
+          end
+        end
+      end
+    end
+
+    def _update_vms_state(vm_topic)
+      OmfCommon.comm.subscribe(vm_topic) do |vm_rc|
+        debug "Looking for VM state: #{vm_topic}"
+        unless vm_rc.error?
+          vm_rc.on_subscribed do
+            vm_rc.configure(:update_state)
           end
         end
       end
