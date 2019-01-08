@@ -40,7 +40,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "bluecloth", "~> 2.2.0"
   s.add_runtime_dependency "omf_common", "~> 6.2.4"
   s.add_runtime_dependency "omf_rc", "~> 6.2.4"
-  s.add_runtime_dependency "eventmachine", "~> 1.2.3"
+  s.add_runtime_dependency "eventmachine", "~> 1.2.6"
   s.add_runtime_dependency "em-minitest-spec", "~> 1.1.1"
   s.add_runtime_dependency "sequel", "= 5.3.0"
   s.add_runtime_dependency "pg", "= 1.0.0"
