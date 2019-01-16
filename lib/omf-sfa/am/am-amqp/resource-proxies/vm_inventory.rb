@@ -116,21 +116,21 @@ module OmfRc::ResourceProxy::VmInventory
   end
 
   work :get_resource do |resource|
-      vm_desc = resource.normalize_hash(resource.property[:vm_desc])
-      error_msg = nil
-      res = nil
-      begin
-        res = @manager.find_resource(vm_desc, "sliver_type", @authorizer)
-      rescue OMF::SFA::AM::UnknownResourceException => error
-        error_msg = "Virtual machine not found: #{vm_desc[:or]}"
-        resource.inform_error(error_msg)
-      rescue OMF::SFA::AM::InsufficientPrivilegesException => error
-        error_msg = "You have no permission to update the virtual machine #{vm_desc[:or]}"
-        resource.inform_error(error_msg)
-      rescue OMF::SFA::AM::FormatException, Exception => error
-        error_msg = error.to_s
-        resource.inform_error(error_msg)
-      end
-      {:resource => res, :error => error_msg}
+    vm_desc = resource.normalize_hash(resource.property[:vm_desc])
+    error_msg = nil
+    res = nil
+    begin
+      res = @manager.find_resource(vm_desc, "sliver_type", @authorizer)
+    rescue OMF::SFA::AM::UnknownResourceException => error
+      error_msg = "Virtual machine not found: #{vm_desc[:or]}"
+      resource.inform_error(error_msg)
+    rescue OMF::SFA::AM::InsufficientPrivilegesException => error
+      error_msg = "You have no permission to update the virtual machine #{vm_desc[:or]}"
+      resource.inform_error(error_msg)
+    rescue OMF::SFA::AM::FormatException, Exception => error
+      error_msg = error.to_s
+      resource.inform_error(error_msg)
+    end
+    {:resource => res, :error => error_msg}
   end
 end

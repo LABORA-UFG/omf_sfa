@@ -1,6 +1,6 @@
 require 'omf_rc'
 require 'omf_common'
-require 'omf-sfa/am/am-amqp/resource-proxies/virtual_machine'
+require 'omf-sfa/am/am-amqp/resource-proxies/vm_inventory'
 
 module OmfRc::ResourceProxy::AMController
   include OmfRc::ResourceProxyDSL
@@ -35,10 +35,16 @@ module OmfRc::ResourceProxy::AMController
         raise "Could not create virtual machine: #{error.to_s}"
       end
 
+      debug "VM DESCRIPTION IN BEFORE_CREATE: #{vm_desc}"
+      debug "CHILDREN: #{@children}"
       new_resource_options[:vm_desc] = vm_desc
     else
       raise "Can't create resource type #{new_resource_type}"
     end
+  end
+
+  hook :after_create do |resource|
+    debug "VM_INVENTORY: RESOURCE CREATED"
   end
 
   request :resources do |resource|
@@ -81,6 +87,7 @@ module OmfRc::ResourceProxy::AMController
 
   def handle_create_message(message, obj, response)
     # Makes default treatment (With some bonus :D) to some resources creation
+    debug "HANDLE_CREATE_MESSAGE = #{message[:type].to_sym}"
     if message[:type].to_sym == :vm_inventory
       handle_create_with_options(message, obj, response)
       return
@@ -113,12 +120,12 @@ module OmfRc::ResourceProxy::AMController
     #   end
     # end
 
-    puts "Message rtype #{message.rtype}"
-    puts "Message new properties #{new_props.class} #{new_props.inspect}"
+    debug "Message rtype #{message.rtype}"
+    debug "Message new properties #{new_props.class} #{new_props.inspect}"
 
     new_res = create_resource(type, new_props)
 
-    puts "NEW RES #{new_res.inspect}"
+    debug "NEW RES #{new_res.inspect}"
     new_res.to_hash.each do |key, value|
       response[key] = value
     end
