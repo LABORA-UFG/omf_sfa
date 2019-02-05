@@ -92,7 +92,7 @@ module OMF::SFA::AM
           result = Nokogiri::XML.parse(so)
           # debug result
         end
-        unless (result.xpath('/VerificationContext')[0]['status'] == 'succeeded')
+        unless result.xpath('/VerificationContext')[0]['status'] == 'succeeded'
           raise OMF::SFA::AM::InsufficientPrivilegesException.new("Error: Signature doesn't verify")#\n#{@signature.to_xml}"
         end
           # <Certificate>

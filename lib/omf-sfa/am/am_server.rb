@@ -170,7 +170,6 @@ module OMF::SFA::AM
           p.separator ""
         end,
         :pre_run => lambda do |options|
-          puts "OPTS: #{options.inspect}"
           init_logger
           check_dependencies
           load_trusted_cert_roots
@@ -240,6 +239,8 @@ if $config[:central_broker] && $config[:central_broker][:enabled]
     opts[:central_broker][:subauthorities][subauthority[:domain]][:address] = subauthority[:address].gsub(/\/$/, "")
     opts[:central_broker][:subauthorities][subauthority[:domain]][:cert]    = subauthority[:cert]
     opts[:central_broker][:subauthorities][subauthority[:domain]][:key]     = subauthority[:key]
+    opts[:central_broker][:subauthorities][subauthority[:domain]][:event_forwarding] = (subauthority[:event_forwarding] === true)
+
   end
 end
 OMF::SFA::AM::AMServer.new.run(opts)

@@ -125,6 +125,11 @@ if REQUIRE_LOGIN
   end
 end
 
+map '/inform_event' do
+  require 'omf-sfa/am/am-rest/events_handler'
+  run OMF::SFA::AM::Rest::EventsHandler.new(opts[:am][:manager], opts)
+end
+
 map "/readme" do
   require 'bluecloth'
   s = File::read(File.dirname(__FILE__) + '/am-rest/REST_API.md')
@@ -141,8 +146,6 @@ map "/readme" do
 </html>
 }
   p = lambda do |env|
-  puts "#{env.inspect}"
-
     return [200, {"Content-Type" => "text/html"}, [wrapper % frag]]
   end
   run p

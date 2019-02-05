@@ -54,6 +54,10 @@ module OMF::SFA::AM
       @@sfa_namespaces[:flex] = 'http://nitlab.inf.uth.gr/schema/sfa/rspec/lte/1'
     end
 
+    def subauthorities
+      @subauthorities
+    end
+
     ###
     # Method to pass REST requisitions to other subathorities
     #
@@ -144,8 +148,8 @@ module OMF::SFA::AM
             error "Could not finalize the request to URL: #{url} - #{ex.to_s}."
           end
         }
-        tds.each {|td| td.join}
       end
+      tds.each {|td| td.join}
 
       # join all subauthorities responses...
       final_response = {:resources => []}
@@ -911,7 +915,7 @@ module OMF::SFA::AM
         options[:valid_until] = lease_el[:valid_until]
         options[:components]  = lease_el[:components]
 
-        http, request = prepare_request("POST", url, authorizer,subauthority, options)
+        http, request = prepare_request("POST", url, authorizer, subauthority, options)
 
         begin
           out = http.request(request)
@@ -980,16 +984,17 @@ module OMF::SFA::AM
       header = {"Content-Type" => "application/json", "Accept" => "application/json"} if header.nil?
       type = type.capitalize
 
-      pem = File.read(subauthority[:cert]) unless subauthority.nil?
-      pkey = File.read(subauthority[:key]) unless subauthority.nil?
+      pem, pkey = nil
+      pem = File.read(subauthority[:cert]) unless (subauthority.nil? || subauthority[:cert].nil?)
+      pkey = File.read(subauthority[:key]) unless (subauthority.nil? || subauthority[:key].nil?)
 
       uri              = URI.parse(url)
       http             = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl     = true
       http.read_timeout = 30
       http.open_timeout = 2
-      http.cert        = OpenSSL::X509::Certificate.new(pem) unless type == "Get"
-      http.key         = OpenSSL::PKey::RSA.new(pkey) unless type == "Get"
+      http.cert        = OpenSSL::X509::Certificate.new(pem) unless (type == "Get" || pem.nil? || pem.empty?)
+      http.key         = OpenSSL::PKey::RSA.new(pkey) unless (type == "Get" || pkey.nil? || pkey.empty?)
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE
       request          = eval("Net::HTTP::#{type}").new(uri.request_uri, header)
       if authorizer.instance_of? OMF::SFA::AM::Rest::FibreAuth::AMAuthorizer

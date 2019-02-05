@@ -68,6 +68,14 @@ module OMF::SFA::AM
     def provision(leases)
       warn "Am liaison: on_provision: Not implemented."
     end
+
+    def inform_lease_start_event(lease_event)
+      warn "Am liaison: inform_lease_start_event: Not implemented."
+    end
+
+    def inform_lease_end_event(lease_event)
+      warn "Am liaison: inform_lease_end_event: Not implemented."
+    end
   end # DefaultAMLiaison
 end # OMF::SFA::AM
 

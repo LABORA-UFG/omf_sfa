@@ -252,7 +252,6 @@ module OMF::SFA::AM::Rest
         body = body.read
         tmp.rewind
       end
-      debug 'PARSE_BODY(ct: ', req.content_type, '): ', body.inspect
       unless content_type = req.content_type
         body.strip!
         if ['/', '{', '['].include?(body[0])
@@ -292,6 +291,14 @@ module OMF::SFA::AM::Rest
       raise UnsupportedBodyFormatException.new(content_type)
     end
 
+    def get_request_headers(opts)
+      env = opts[:req].env
+      headers = Hash[*env.select {|k,v| k.start_with? 'HTTP_'}
+                          .collect {|k,v| [k.sub(/^HTTP_/, ''), v]}
+                          .collect {|k,v| [k.split('_').collect(&:capitalize).join('-'), v]}
+                          .sort
+                          .flatten]
+    end
 
 
     protected
