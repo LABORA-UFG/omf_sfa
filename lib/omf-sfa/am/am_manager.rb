@@ -814,7 +814,7 @@ module OMF::SFA::AM
           return resource
         end
       rescue => ex
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Resource type not exists: '#{type_to_release}'"
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Resource type not exists: '#{type_to_release}': #{ex.to_s}"
       end
 
       debug "Resource '#{type_to_release}' doesn't have the handle_rest_resource_release method, proceeding with the default release proccess..."

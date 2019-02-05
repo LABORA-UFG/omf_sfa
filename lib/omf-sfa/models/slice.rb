@@ -134,6 +134,15 @@ module OMF::SFA::Model
       raise OMF::SFA::AM::Rest::BadRequestException.new "You have no permission to modify this slice." unless
           authorizer.can_operate_slice?(slice.account) and authorizer.can_release_resource?(slice)
 
+      # Remove leases of this slice
+      leases = OMF::SFA::Model::Lease.where({account_id: account.id})
+      for lease in leases
+        begin
+          scheduler.release_lease(lease)
+        end
+        lease.destroy
+      end
+
       # Remove all actual components
       slice = self.remove_components_of_slice(slice)
 
