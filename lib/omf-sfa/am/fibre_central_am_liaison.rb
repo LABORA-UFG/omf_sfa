@@ -49,7 +49,7 @@ module OMF::SFA::AM
         end
 
         tds << Thread.new {
-          event_inform_path = "#{subauth_opts[:address]}/inform_event2"
+          event_inform_path = "#{subauth_opts[:address]}/inform_event"
           debug "Sending '#{event_type}' event to subauth: #{subauth} - #{event_inform_path}"
           begin
             http, request = prepare_request('POST', event_inform_path, subauth_opts, event_data)
