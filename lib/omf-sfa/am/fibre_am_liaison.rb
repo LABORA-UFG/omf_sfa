@@ -131,7 +131,7 @@ module OMF::SFA::AM
         end
       end
 
-      slice_name = "#{fed_prefix}#{slice.name}_#{domain}"
+      slice_name = "#{fed_prefix}slice_#{account.name}_#{domain}"
       slice_name = convert_to_valid_variable_name(slice_name)
 
       release_flowvisor_slice(slice_name)
@@ -147,11 +147,25 @@ module OMF::SFA::AM
       raise UnknownResourceException.new "Cannot find account with urn: '#{lease_event[:account_urn]}'" unless account
 
       leases = OMF::SFA::Model::Lease.where({account_id: account.id})
+      released = false
       for lease in leases
+        released = true
         if lease.valid_from.to_i == lease_event[:valid_from] and lease.valid_until.to_i == lease_event[:valid_until]
           on_lease_end(lease, true)
         end
       end
+
+      # Remove NOC slice
+      unless released
+        domain = OMF::SFA::Model::Constants.default_domain.gsub('.', '-')
+        fed_prefix = if @pubsub[:federate] then "fed-#{domain}-" else "" end
+        slice_name = "#{fed_prefix}slice_#{account.name}_#{domain}"
+        slice_name = convert_to_valid_variable_name(slice_name)
+
+        info "SLICE NAME: #{slice_name}"
+        release_flowvisor_slice(slice_name)
+      end
+
       {:message => 'Successfully received lease_end event'}
     end
 
@@ -166,7 +180,7 @@ module OMF::SFA::AM
       OmfCommon.comm.subscribe(slice) do |slice_topic|
         debug "Releasing slice #{slice}"
         slice_topic.on_subscribed do
-          slice_topic.release_self()
+          slice_topic.release(slice_topic)
         end
       end
     end
