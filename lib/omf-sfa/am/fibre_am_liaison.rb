@@ -131,7 +131,7 @@ module OMF::SFA::AM
         end
       end
 
-      slice_name = "#{fed_prefix}slice_#{account.name}_#{domain}"
+      slice_name = "#{fed_prefix}slice_#{lease.account.name}_#{domain}"
       slice_name = convert_to_valid_variable_name(slice_name)
 
       release_flowvisor_slice(slice_name)
@@ -177,23 +177,37 @@ module OMF::SFA::AM
     end
 
     def release_flowvisor_slice(slice)
-      OmfCommon.comm.subscribe(slice) do |slice_topic|
-        debug "Releasing slice #{slice}"
-        slice_topic.on_subscribed do
-          slice_topic.release(slice_topic)
+      Thread.new {
+        debug "Waiting 5 seconds before release flowvisor slice #{slice}"
+        sleep 5
+        begin
+          OmfCommon.comm.subscribe(slice) do |slice_topic|
+            debug "Releasing slice #{slice}"
+            slice_topic.on_subscribed do
+              slice_topic.release(slice_topic)
+            end
+          end
+        rescue
         end
-      end
+      }
     end
 
     def stop_vm(vm_topic)
-      OmfCommon.comm.subscribe(vm_topic) do |vm_rc|
-        debug "Stopping VM #{vm_topic}"
-        unless vm_rc.error?
-          vm_rc.on_subscribed do
-            vm_rc.configure(action: :stop)
+      Thread.new {
+        debug "Waiting 5 seconds before stop VM #{vm_topic}"
+        sleep 5
+        begin
+          OmfCommon.comm.subscribe(vm_topic) do |vm_rc|
+            debug "Stopping VM #{vm_topic}"
+            unless vm_rc.error?
+              vm_rc.on_subscribed do
+                vm_rc.configure(action: :stop)
+              end
+            end
           end
+        rescue
         end
-      end
+      }
     end
 
     def update_vms_state(lease)
@@ -212,13 +226,16 @@ module OMF::SFA::AM
     end
 
     def _update_vms_state(vm_topic)
-      OmfCommon.comm.subscribe(vm_topic) do |vm_rc|
-        debug "Looking for VM state: #{vm_topic}"
-        unless vm_rc.error?
-          vm_rc.on_subscribed do
-            vm_rc.configure(:update_state)
+      begin
+        OmfCommon.comm.subscribe(vm_topic) do |vm_rc|
+          debug "Looking for VM state: #{vm_topic}"
+          unless vm_rc.error?
+            vm_rc.on_subscribed do
+              vm_rc.configure(:update_state)
+            end
           end
         end
+      rescue
       end
     end
 
