@@ -11,6 +11,8 @@ module OmfRc::ResourceProxy::AMController
     #logger.debug "creation opts #{resource.creation_opts}"
     @manager = resource.creation_opts[:manager]
     @authorizer = resource.creation_opts[:authorizer]
+    @am_amqp_controller = resource.creation_opts[:controller]
+    @am_amqp_controller.set_rc_instance(resource)
   end
 
   hook :before_create do |resource, new_resource_type, new_resource_options|
@@ -45,6 +47,10 @@ module OmfRc::ResourceProxy::AMController
 
   hook :after_create do |resource|
     debug "VM_INVENTORY: RESOURCE CREATED"
+  end
+
+  request :rc_status do |resource|
+    "FINE"
   end
 
   request :resources do |resource|

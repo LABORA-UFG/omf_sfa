@@ -14,6 +14,10 @@ module OMF::SFA::AM::AMQP
       @manager = opts[:am][:manager]
       @authorizer = create_authorizer
 
+      @am_rc_uid = 'am_controller'
+      @am_rc_topic = nil
+      @rc_instance = nil
+
       EM.next_tick do
         OmfCommon.comm.on_connected do |comm|
           auth = opts[:amqp][:auth]
@@ -28,12 +32,75 @@ module OMF::SFA::AM::AMQP
 
           trusted_roots = File.expand_path(auth[:root_cert_dir])
           OmfCommon::Auth::CertificateStore.instance.register_default_certs(trusted_roots)
+          self.create_rc
 
-          OmfRc::ResourceFactory.create(:am_controller, {uid: 'am_controller', certificate: @cert}, {manager: @manager, authorizer: @authorizer})
+          # start checker thread
+          Thread.new {
+            info "AM controller (RC) checker started!"
+            self.subscribe_rc
+            wait_time = 50
+
+            while true
+              sleep(wait_time)
+              debug "AM Controller (RC) Checker: Getting RC status..."
+              begin
+                rc_is_fine = false
+                @am_rc_topic.request([:rc_status]) do |msg|
+                  if msg.itype != "ERROR" and msg.properties[:rc_status] == 'FINE'
+                    debug "AM Controller (RC) Checker: RC status is FINE :)"
+                    rc_is_fine = true
+                  end
+                end
+                sleep(10)
+                unless rc_is_fine
+                  error "AM Controller (RC) Checker: RC is not fine after 10s, sending restart..."
+                  self.create_rc
+                end
+              rescue
+                error "Could not get AM Controller (RC) status, sending restart..."
+                self.create_rc
+              end
+            end
+          }
 
           puts "AM Resource Controller ready."
         end
       end
+    end
+
+    def set_rc_instance(rc_instance)
+      @rc_instance = rc_instance
+    end
+
+    def subscribe_rc()
+      OmfCommon.comm.subscribe(@am_rc_uid) do |am_topic|
+        am_topic.on_subscribed do
+          debug "AM Controller (RC) checker: Subscribed on RC topic."
+          @am_rc_topic = am_topic
+        end
+      end
+    end
+
+    def create_rc()
+      if @am_rc_topic
+        begin
+          @am_rc_topic.release(@am_rc_topic)
+        end
+        begin
+          topics = OmfCommon::Comm::Topic.name2inst
+          for name, topic in topics
+            if topic.id.to_s == @am_rc_uid.to_s
+              debug "AM Controller (RC) Checker: Remove old RC topic: #{name}"
+              topic.unsubscribe(topic.id, {:delete => true})
+              OmfCommon::Comm::Topic.name2inst.delete(name)
+            end
+          end
+          sleep(10)
+          self.subscribe_rc
+        end
+      end
+      OmfRc::ResourceFactory.create(:am_controller, {uid: @am_rc_uid, certificate: @cert},
+                                    {manager: @manager, authorizer: @authorizer, controller: self})
     end
 
     # This is temporary until we use an amqp authorizer
