@@ -1,0 +1,42 @@
+---
+# default topic name is this machine's hostname
+# this is to ensure that every RC has its own topic and AMQP account
+environment: development
+debug: true
+communication:
+  url: amqp://fibre.<sigla_ilha>.br
+  user: testbed
+  pass: testbed
+  local_address: local-fed-fibre-<sigla_ilha>-br-urn:publicid:IDN+fibre.<sigla_ilha>.br+node+xen-<%= Process.pid %>
+ 
+ 
+credentials:
+  root_cert_dir: /root/.omf/trusted_roots
+  entity_cert: /root/.omf/am.pem
+  entity_key: /root/.omf/am.pkey
+ 
+resources:
+- type: node
+  uid: <%= Socket.gethostname %>
+- type: hypervisor
+  uid: urn:publicid:IDN+fibre.<sigla_ilha>.br+node+xen
+  federate: true
+  domain: fibre-<sigla_ilha>-br
+  image_directory: /data/vm_images
+  img_builder: fibre
+  omf_opts:
+    server: amqp://fibre.<sigla_ilha>.br
+    user: testbed
+    password: testbed
+    topic: <%= Socket.gethostname %>
+  hypervisor: xen
+  hypervisor_uri: xen+ssh://root@10.<id_ilha>.0.30:6622
+  virt_install_path: /usr/bin/virt-install
+  image_template_path: /data/images_templates
+  image_final_path: /data/vm_images
+  ssh_params:
+    ip_address: "10.<id_ilha>.0.30"
+    user: <ssh_user>
+    port: <ssh_port>
+    key_file: "/root/.ssh/id_rsa"
+  
