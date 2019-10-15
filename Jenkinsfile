@@ -28,7 +28,7 @@ node {
          * First, the incremental build number from Jenkins
          * Second, the 'latest' tag.
          * Pushing multiple tags is cheap, as all the layers are reused. */
-	 docker.withRegistry('http://10.128.0.200:8081/repository/fibre-registry/', 'nexus-fibre') {
+	 docker.withRegistry('10.128.0.200:8082', 'nexus-fibre') {
             app.push("${env.BUILD_NUMBER}")
             app.push("latest")
 	}
