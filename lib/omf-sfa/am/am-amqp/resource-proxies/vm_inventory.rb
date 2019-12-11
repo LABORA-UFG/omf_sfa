@@ -73,6 +73,21 @@ module OmfRc::ResourceProxy::VmInventory
     end
   end
 
+  # Request public keys of users that can access the virtual machine
+  # request :vlan do |resource|
+  #   vm_desc = resource.normalize_hash(resource.property[:vm_desc])
+  #   vm = resource.get_resource
+  #
+  #   debug "Getting vlan to be used in virtual machine with desc '#{vm_desc}'"
+  #   if vm[:resource].nil?
+  #     vm[:error]
+  #   else
+  #     not_time = Time.now
+  #     account = vm[:resource].account
+  #     lease = OMF::SFA::Model::Lease.where(account: account, status: ['active', 'accepted']){((valid_from >= not_time) & (valid_from < end_time)) | ((valid_from <= start_time) & (valid_until > start_time))}
+  #   end
+  # end
+
   # All virtual machine params will be configured here, to enhance the performance, not overriding one attribute
   # in database by time
   configure_all do |resource, conf_props, conf_result|
