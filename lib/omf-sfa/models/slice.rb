@@ -214,6 +214,12 @@ module OMF::SFA::Model
           not_found_resources << slice_resource
           next
         end
+
+        # skip vlan addition on slice resources
+        if slice_resource[:type] == 'vlan' or resource_obj.type == 'vlan'
+          next
+        end
+
         slice_model_resources << resource_obj
       end
 

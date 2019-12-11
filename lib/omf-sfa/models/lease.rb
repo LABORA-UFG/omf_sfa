@@ -111,6 +111,8 @@ module OMF::SFA::Model
       raise OMF::SFA::AM::Rest::BadRequestException.new "Attributes valid_from and valid_until are mandatory." if body_opts[:valid_from].nil? || body_opts[:valid_until].nil?
       raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute components is mandatory." if (body_opts[:components].nil? || body_opts[:components].empty?) &&
           (body_opts[:components_attributes].nil? || body_opts[:components_attributes].empty?) && (body_opts[:use_slice_components].nil? || body_opts[:use_slice_components] != true)
+      raise OMF::SFA::AM::Rest::BadRequestException.new "Attribute vlan is mandatory when you try to create a lease with slice resources." if (body_opts[:use_slice_components] == true &&
+          (body_opts[:vlan].nil? || body_opts[:vlan].empty?))
 
       # Get account...
       ac_desc = body_opts[:account] || body_opts[:account_attributes]
@@ -133,10 +135,16 @@ module OMF::SFA::Model
       components = []
       nil_account_id = scheduler.get_nil_account().id
       if body_opts[:use_slice_components] === true
+        # Handle lease creation with slice...
         slice = OMF::SFA::Model::Slice.first({account_id: account.id})
         raise OMF::SFA::AM::Rest::BadRequestException.new "You cannot use the option ':use_slice_components' for account '#{account.urn}'," \
                           "because this account does not have a slice" unless slice
+        vlan = OMF::SFA::Model::Vlan.where({:name => body_opts[:vlan], :account_id => nil_account_id})
+        raise OMF::SFA::AM::Rest::BadRequestException.new "The VLAN '#{body_opts[:vlan]}' was not found!" if vlan.nil?
+        vlan = vlan.first
+
         components = slice.components
+        components << vlan
         components.each do |comp|
           if comp.account.id == nil_account_id
             comp[:clone_resource] = true
