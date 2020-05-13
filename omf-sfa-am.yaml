@@ -1,7 +1,7 @@
 omf_sfa_am:
   # This is your testbed's domain. It will be used in the URNs
   # of the resources e.g. 'urn:publicid:IDN+domain+type+name'
-  domain: ufg.br
+  domain: fibre.ilha_1.br
   #operation mode for OmfCommon.init (development, production, etc)
   operationMode: development
 
@@ -9,7 +9,7 @@ omf_sfa_am:
   # postgres://user:password@localhost/my_db
   # sqlite://inventory.db
   #database: sqlite://inventory.db
-  database: postgres://omf_sfa:omf_sfa_pass@omf_sfa_db/omf_sfa_db
+  database: postgres://postgres:postgres@omf_sfa_db_ilha_1/inventory
 
   endpoints:
     -
@@ -24,7 +24,9 @@ omf_sfa_am:
       protocol: amqp
       user: testbed
       password: testbed
-      server: rabbitmq
+      pass: testbed
+      server: rabbitmq_ilha_1
+      local_address: local-am_controller-<%= Process.pid %>
       pubsub_opt:
         :require: omf-sfa/am/am-amqp/am_amqp
         :constructor: OMF::SFA::AM::AMQP::AMController
@@ -54,11 +56,4 @@ omf_sfa_am:
       constructor: OMF::SFA::AM::AMPolicies
 
   central_broker:
-      enabled: false
-      subauthorities:
-          -
-            domain:  omf.testbed
-            address: https://localhost:8001/
-            cert: ~/.omf/am.pem
-            key: ~/.omf/am.pkey
-            event_forwarding: true
+    enabled: false

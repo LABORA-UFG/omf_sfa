@@ -73,7 +73,9 @@ RUN bundle config --global frozen 1
 
 WORKDIR /root
 
-RUN git clone -b amqp https://git.rnp.br/fibre/omf.git
+ADD ./omf_sfa /root/omf_sfa/
+ADD ./omf /root/omf/
+#RUN git clone -b amqp https://git.rnp.br/fibre/omf.git
 
 #install_omf_common_gem
 RUN cd /root/omf/omf_common && \
@@ -86,7 +88,7 @@ RUN cd /root/omf/omf_rc && \
    gem install omf_rc-*.gem
 
 # # install omf_sfa
-RUN git clone -b amqp https://git.rnp.br/fibre/omf_sfa.git
+#RUN git clone -b amqp https://git.rnp.br/fibre/omf_sfa.git
 
 #ARG BROKER_VERSION=f3391c25c907122b0893305f0ad570a50bff4833
 #RUN git -C ./omf_sfa checkout $BROKER_VERSION
@@ -95,6 +97,19 @@ RUN git clone -b amqp https://git.rnp.br/fibre/omf_sfa.git
 ADD ./Gemfile.lock /root/omf_sfa/Gemfile.lock
 
 RUN cd ./omf_sfa && bundle install
+
+RUN gem install rack --version=1.5.5
+RUN gem install rack-rpc --version=0.0.12
+RUN gem install thin --version=1.6.4
+RUN gem install log4r --version=1.1.10
+RUN gem install rufus-scheduler --version=3.0.9
+RUN gem install rspec --version=3.5.0
+RUN gem install pg --version=1.0.0
+RUN gem install uuid --version=2.3.9
+RUN gem install dm-core --version=1.2.1
+RUN gem install dm-types --version=1.2.2
+RUN gem install dm-validations --version=1.2.0
+RUN gem install bluecloth --version=2.2.0
 
 ###############CREATING DEFAULT SSH KEY###############
 RUN ssh-keygen -b 2048 -t rsa -f /root/.ssh/id_rsa -q -N ""
@@ -110,3 +125,13 @@ RUN mkdir -p /root/.omf/trusted_roots && \
     omf_cert.rb -o /root/.omf/user_cert.pem --geni_uri URI:urn:publicid:IDN+$AM_SERVER_DOMAIN+user+root --email root@$DOMAIN --user root --root /root/.omf/trusted_roots/root.pem --duration 50000000 create_user && \
     openssl rsa -in /root/.omf/am.pem -outform PEM -out /root/.omf/am.pkey && \
     openssl rsa -in /root/.omf/user_cert.pem -outform PEM -out /root/.omf/user_cert.pkey
+
+RUN sed '/-----BEGIN RSA PRIVATE KEY-----/,/-----END RSA PRIVATE KEY-----/d' /root/.omf/am.pem > /root/.omf/am.pem2
+RUN rm /root/.omf/am.pem
+RUN mv /root/.omf/am.pem2 /root/.omf/am.pem
+
+COPY config_ilha_1/omf-sfa-am.yaml /root/omf_sfa/etc/omf-sfa/omf-sfa-am.yaml
+COPY config_ilha_1/config.yaml /etc/omf_rc/config.yaml
+COPY wait-for-postgres.sh /root/omf_sfa/wait-for-postgres.sh
+
+RUN ./wait-for-postgres.sh

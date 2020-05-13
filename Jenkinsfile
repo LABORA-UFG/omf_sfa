@@ -1,36 +1,41 @@
-node {
-    def app
-
-    stage('Clone repository') {
-        /* Let's make sure we have the repository cloned to our workspace */
-
-        checkout scm
+pipeline {
+    environment {
+        registry = "gustavo978/fibre-broker"
+        registryCredential = '601e4fe0-c8e4-489d-84bb-4ed540d27f2c'
+        dockerImage = ''
     }
 
-    stage('Build image') {
-        /* This builds the actual image; synonymous to
-         * docker build on the command line */
+    agent any
+    stages {
+        stage('Cloning our Git') {
+            steps {
+                checkout scm
+            }
+        }
 
-        app = docker.build("omf_sfa")
-    }
+        stage('Building our image') {
+            steps{
+                script {
+                    dockerImage = docker.build registry + ":$BUILD_NUMBER"
+                }
+            }
+        }
 
-    stage('Test image') {
-        /* Ideally, we would run a test framework against our image.
-         * For this example, we're using a Volkswagen-type approach ;-) */
+        stage('Deploy our image') {
+            steps{
+                script {
+                    docker.withRegistry('', registryCredential) {
+                        dockerImage.push()
+                    }
+                }
+            }
+        }
 
-        app.inside {
-            sh 'echo "Tests passed"'
+        stage('Cleaning up') {
+            steps{
+                sh "docker rmi $registry:$BUILD_NUMBER"
+            }
         }
     }
-
-    stage('Push image') {
-        /* Finally, we'll push the image with two tags:
-         * First, the incremental build number from Jenkins
-         * Second, the 'latest' tag.
-         * Pushing multiple tags is cheap, as all the layers are reused. */
-	 docker.withRegistry('http://10.128.0.200:8082', 'nexus-fibre') {
-            app.push("${env.BUILD_NUMBER}")
-            app.push("latest")
-	}
-    }
 }
+
