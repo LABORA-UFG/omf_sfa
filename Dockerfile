@@ -73,9 +73,9 @@ RUN bundle config --global frozen 1
 
 WORKDIR /root
 
-ADD ./omf_sfa /root/omf_sfa/
-ADD ./omf /root/omf/
-#RUN git clone -b amqp https://git.rnp.br/fibre/omf.git
+#ADD ./omf_sfa /root/omf_sfa/
+#ADD ./omf /root/omf/
+RUN git clone -b amqp https://git.rnp.br/fibre/omf.git
 
 #install_omf_common_gem
 RUN cd /root/omf/omf_common && \
@@ -88,15 +88,12 @@ RUN cd /root/omf/omf_rc && \
    gem install omf_rc-*.gem
 
 # # install omf_sfa
-#RUN git clone -b amqp https://git.rnp.br/fibre/omf_sfa.git
-
-#ARG BROKER_VERSION=f3391c25c907122b0893305f0ad570a50bff4833
-#RUN git -C ./omf_sfa checkout $BROKER_VERSION
-
-# hack because of Gemfile.lock missing
+RUN git clone -b amqp https://git.rnp.br/fibre/omf_sfa.git
+RUN cd ./omf_sfa
+RUN git checkout amqp
 ADD ./Gemfile.lock /root/omf_sfa/Gemfile.lock
 
-RUN cd ./omf_sfa && bundle install
+RUN bundle install
 
 RUN gem install rack --version=1.5.5
 RUN gem install rack-rpc --version=0.0.12
